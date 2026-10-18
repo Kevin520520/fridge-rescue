@@ -15,5 +15,8 @@ All other result folders in the private development workspace are superseded
 diagnostics, failed candidates, or historical Food.com v1/v2 evidence. They are
 not part of the public release and must not be quoted as current results.
 
-The formal directory retains every raw attempt, frozen cases/config/prompts/rules,
-source manifest, aggregate table, case comparison, and the post-run analysis.
+This public repository keeps the compact evidence needed to understand the
+release decision: aggregate tables, case comparison, frozen cases, source
+manifest, and post-run analysis. Full raw attempts and frozen copies remain in
+the private development workspace for later report writing; they are omitted
+here to keep the runnable repository small and beginner-friendly.
