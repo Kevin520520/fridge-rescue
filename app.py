@@ -136,9 +136,30 @@ def _inject_app_styles() -> None:
 
         .fr-source-line {
             margin: .35rem 0;
+            padding: .35rem .55rem;
+            border-radius: 10px;
             color: #3f332c;
             line-height: 1.55;
             white-space: pre-wrap;
+        }
+
+        .fr-source-line-hit {
+            border: 1px solid rgba(84, 137, 74, .28);
+            background: #edf7e9;
+            color: #284b28;
+            font-weight: 650;
+        }
+
+        .fr-source-hit-badge {
+            display: inline-block;
+            margin-left: .65rem;
+            padding: .08rem .48rem;
+            border-radius: 999px;
+            background: #d8ecd2;
+            color: #315c31;
+            font-size: .72rem;
+            font-weight: 800;
+            vertical-align: .08rem;
         }
 
         .fr-zh {
@@ -295,19 +316,47 @@ def _coverage_summary(
 def _requested_ingredient_summary(
     recipe: RecipeRecord,
     request: UserRequest,
-    pantry_staples: Sequence[str],
     ingredient_aliases: Mapping[str, str],
 ) -> tuple[int, int]:
-    """Return matched and total user-requested ingredients, excluding pantry assumptions."""
+    """Return coverage of every ingredient explicitly entered by the user."""
 
     details = ingredient_match_details(
         recipe,
         request.available_ingredients,
-        pantry_staples,
+        (),
         ingredient_aliases,
     )
     total_requested = len(details.matched_inputs) + len(details.unmatched_inputs)
     return details.matched_input_count, total_requested
+
+
+def _requested_ingredient_line_matches(
+    recipe: RecipeRecord,
+    request: UserRequest,
+    ingredient_aliases: Mapping[str, str],
+) -> list[bool]:
+    """Mark source ingredient lines that match an explicitly entered ingredient."""
+
+    matches: list[bool] = []
+    for normalized_line, original_line in zip(
+        recipe.ingredients_normalized,
+        recipe.ingredient_lines_original,
+        strict=True,
+    ):
+        one_line_recipe = recipe.model_copy(
+            update={
+                "ingredient_lines_original": [original_line],
+                "ingredients_normalized": [normalized_line],
+            }
+        )
+        details = ingredient_match_details(
+            one_line_recipe,
+            request.available_ingredients,
+            (),
+            ingredient_aliases,
+        )
+        matches.append(details.matched_input_count > 0)
+    return matches
 
 
 def _display_recipe(
@@ -328,7 +377,11 @@ def _display_recipe(
     matched_requested, total_requested = _requested_ingredient_summary(
         recipe,
         request,
-        pantry_staples,
+        ingredient_aliases,
+    )
+    requested_line_matches = _requested_ingredient_line_matches(
+        recipe,
+        request,
         ingredient_aliases,
     )
     with st.container(border=True):
@@ -355,9 +408,19 @@ def _display_recipe(
             ["Ingredients · 食材", "Steps · 步骤", "Source · 来源"]
         )
         with ingredient_tab:
-            for ingredient_line in ingredient_display_lines(recipe):
+            for ingredient_line, is_requested_match in zip(
+                ingredient_display_lines(recipe),
+                requested_line_matches,
+                strict=True,
+            ):
                 st.markdown(
-                    authoritative_source_line_html(ingredient_line, prefix="•"),
+                    authoritative_source_line_html(
+                        ingredient_line,
+                        prefix="•",
+                        highlight_label=(
+                            "✓ In your fridge · 已有" if is_requested_match else None
+                        ),
+                    ),
                     unsafe_allow_html=True,
                 )
         with instruction_tab:
@@ -577,7 +640,6 @@ if submitted:
                         matched_requested, total_requested = _requested_ingredient_summary(
                             recipe,
                             request,
-                            pantry_staples,
                             ingredient_aliases,
                         )
                         reason = (
@@ -627,6 +689,7 @@ if submitted:
                         retriever=retriever,
                         selector=selector,
                         top_k=candidate_pool_size,
+                        selection_pool_size=max_recommendations,
                         allowed_substitution_notes=reviewed_notes,
                         allergen_aliases=retriever.rules.allergen_aliases,
                         ingredient_aliases=retriever.rules.ingredient_aliases,

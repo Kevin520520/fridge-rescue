@@ -90,8 +90,8 @@ Evidence is stored in `data/curated/audits/v31_20261018/`:
 - `flagged_records.csv`: hard failures or review warnings
 
 For the released corpus SHA-256 above, all 2,000 records passed with zero
-global failures, zero hard failures, zero review warnings, and no legacy split
-quantity columns.
+global failures, zero hard failures, zero review warnings, and no disallowed
+split-quantity columns.
 
 An independent rebuild reproduced all four declared release files byte for
 byte. The only non-deterministic summary field is elapsed runtime.
@@ -105,5 +105,5 @@ byte. The only non-deterministic summary field is elapsed runtime.
 .\.venv\Scripts\python.exe scripts\check_setup.py --check-rebuild
 ```
 
-Superseded Food.com and earlier Epicurious QA files are not part of this
-release directory and must not be cited as evidence for Corpus v3.1.
+Only the files listed in the current curation summary and audit directory are
+release evidence for Corpus v3.1.

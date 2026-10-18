@@ -1,26 +1,26 @@
 {
   "algorithm": "sha256",
-  "combined_sha256": "080bfc00f7b34f09915937935e0ea1f53e7d4e12c4ac5e5e024b4a0c23ca2d41",
+  "combined_sha256": "ce5de20ecb71aa77290d6561eade979183defee7fc8d7cc0a817b094a5e4f194",
   "files": [
     {
       "path": "app.py",
-      "sha256": "5539b33e6899138ad5bddba5b333ef587fd6554e9726dc8d19a0c7ae5fcce331",
-      "size_bytes": 22822
+      "sha256": "d3330189c39c32401bce97b5f6529023fc699c929f0132f56781dc9b5de5bc59",
+      "size_bytes": 25701
     },
     {
       "path": "config.yaml",
-      "sha256": "d2360ebd014ebc42b67cb7dcf8352a3879fb3546f5b40825cb52f15d0cfe1672",
-      "size_bytes": 364
+      "sha256": "a5a92a247faf42aaf6a37f07732a7fc9b3c102faf91aa5f9ea9bbe2673a5ae16",
+      "size_bytes": 363
     },
     {
       "path": "prompts.yaml",
-      "sha256": "8e0c72b6d38d1ad51ed0ec99172b1788bb8d3af6d5d12c36b8b7a80f9292e932",
-      "size_bytes": 1214
+      "sha256": "df91b63702a30ea59a5a47b07f9c8904b68597e14b52697a0135fb57e830e66b",
+      "size_bytes": 1288
     },
     {
       "path": "pyproject.toml",
-      "sha256": "08dad15b8327f0ea10ca651803a7275e68b436a6d10f88c3ea59e24990286e2e",
-      "size_bytes": 681
+      "sha256": "f782fc7fa9cfc2ed2beff9f67574e659e38431e88a769b78c4deba44729a9a6b",
+      "size_bytes": 680
     },
     {
       "path": "requirements-lock.txt",
@@ -29,8 +29,8 @@
     },
     {
       "path": "rules.yaml",
-      "sha256": "b1622d52c4aa886c90480cdba384afa85d07a0ef54db402367f38e0ed3a19cc0",
-      "size_bytes": 15169
+      "sha256": "6ef17a8a421f0804e723dba64998f642be79772c49620ca7348a573bc461faea",
+      "size_bytes": 15093
     },
     {
       "path": "src/fridge_rescue/__init__.py",
@@ -39,23 +39,23 @@
     },
     {
       "path": "src/fridge_rescue/baseline.py",
-      "sha256": "d99e9f3b9169b2bb92951e12b9229b29608da453562f599c9e46123a9f2938e5",
-      "size_bytes": 6168
+      "sha256": "4e0bc6296d94bda1f509f08e760978057aadbf104bd3aa6f44085027871f2d5d",
+      "size_bytes": 6024
     },
     {
-      "path": "src/fridge_rescue/data_pipeline.py",
-      "sha256": "10a38694662bbe7afbc438ecb1546f084876d242c2ca42f607c38aa5de06d6d0",
-      "size_bytes": 17388
+      "path": "src/fridge_rescue/curation_common.py",
+      "sha256": "92c3137c6ab3f18f1e6f5113fdbb64a69f2a8a4bf486a673f52ec3baaec4117b",
+      "size_bytes": 4525
     },
     {
       "path": "src/fridge_rescue/epicurious_pipeline.py",
-      "sha256": "22f410635945e4edfcd18b3772f7723eb8d295f13ab6eb91bd86a5480c53a721",
-      "size_bytes": 48583
+      "sha256": "1a512dd00f4af5ae4bf7c3ff6894f43ec13725372d2d02e84614fc20a168049a",
+      "size_bytes": 48585
     },
     {
       "path": "src/fridge_rescue/evaluation.py",
-      "sha256": "4be2f779c096e6ac9bc546ce4201a99870bab8cbf41028c317c5c567df8fcf9c",
-      "size_bytes": 67533
+      "sha256": "76df4e5d2b64e87539137fd13347fc87dc04ee2b81c3a06f5ffa529a1c840e6e",
+      "size_bytes": 69330
     },
     {
       "path": "src/fridge_rescue/input_normalization.py",
@@ -69,13 +69,13 @@
     },
     {
       "path": "src/fridge_rescue/openai_selector.py",
-      "sha256": "ab5f591e9bc2dc6ef2ee2cdb0f044dfeb12cda2c1bae95394b81f3a680e4f61e",
-      "size_bytes": 11235
+      "sha256": "5ff64dd5569d7e023b6185455e657f031a647b5c5f7d93fc0c0291e78d8150cd",
+      "size_bytes": 10911
     },
     {
       "path": "src/fridge_rescue/presentation.py",
-      "sha256": "480a21814a3f196f205254b76a70568c5f1d80aac04c24d809e298b55f11f93c",
-      "size_bytes": 1285
+      "sha256": "643a6257944396802833afd24131090bcfa934b36684b6494606bf1e519ac923",
+      "size_bytes": 1592
     },
     {
       "path": "src/fridge_rescue/repository.py",
@@ -84,13 +84,13 @@
     },
     {
       "path": "src/fridge_rescue/retrieval.py",
-      "sha256": "eaae7db65bd7bf895c7847a2077f363067042054e58750343a4dd321196c1668",
-      "size_bytes": 22818
+      "sha256": "5336fe2cd02001ec2a24bdcc89542e58c081f7e732f9e54d19893983add67693",
+      "size_bytes": 22812
     },
     {
       "path": "src/fridge_rescue/rule_checker.py",
-      "sha256": "9f5866d03f5e0b8ad712458834b480eb8580ef393ef7f5bd351d0895da1a31db",
-      "size_bytes": 5949
+      "sha256": "6d50747709171b6377ae152f2bcd1780172180ed5f92b14d1a209f4d4d0ef880",
+      "size_bytes": 5846
     },
     {
       "path": "src/fridge_rescue/schemas.py",
@@ -104,18 +104,18 @@
     },
     {
       "path": "src/fridge_rescue/settings.py",
-      "sha256": "ef506a57c314cce885110ff1b143d7080784d0b2163a7e2088998586f5ec5390",
-      "size_bytes": 3840
+      "sha256": "60f990ec85d66bf45b5167ee770ad523e1f575a5dddf4d3e8b437cf1901f6a07",
+      "size_bytes": 3521
     },
     {
       "path": "src/fridge_rescue/workflow.py",
-      "sha256": "6107a3323848ea578f1591e3c0e60ae13aeda4a9503b11d4dcf2a7ab3502fd9b",
-      "size_bytes": 23298
+      "sha256": "a6e6d084a0131a181129dbe6a846d34ed112a2070996e6b54e1c3542261d5722",
+      "size_bytes": 23571
     },
     {
       "path": "scripts/audit_curated_corpus.py",
-      "sha256": "d4db767452982c84006926bbc0a8902db0eb7d487cbe6909dd1486d6de6cefab",
-      "size_bytes": 29065
+      "sha256": "8b591f73424096a14d2ceb83616d3af0339343f99d6604adb5ef2a9a43d305cf",
+      "size_bytes": 29115
     },
     {
       "path": "scripts/check_setup.py",
@@ -134,8 +134,8 @@
     },
     {
       "path": "scripts/inspect_source.py",
-      "sha256": "7a06a740a96e3aa3616bba1a459cee381d9c3c88fc26b9b5881b3abf03fd81bc",
-      "size_bytes": 12280
+      "sha256": "96a40c0607a1a6b71919729707a67eb833aedaaf282bb1da771670aafa1e6a6c",
+      "size_bytes": 6507
     },
     {
       "path": "scripts/live_smoke.py",
@@ -146,11 +146,6 @@
       "path": "scripts/run_final_evaluation.py",
       "sha256": "eb339dcf47ea9c922759e7a9d2bf5a67a42b9821aa17039d8b36cde0abb5e12d",
       "size_bytes": 21455
-    },
-    {
-      "path": "scripts/run_ingredient_benchmark.py",
-      "sha256": "e2ca11622299099fdfe7c013d6f022b10288875dcfb147e6e4bd7a6e08f97dd9",
-      "size_bytes": 17703
     },
     {
       "path": "scripts/scan_v3_retrieval_policies.py",
@@ -169,18 +164,18 @@
     },
     {
       "path": "tests/test_app_coverage.py",
-      "sha256": "5a79c9f32378479a8237fd353bc1b24494cbeb6fb9d8745cfec8fc04061d0337",
-      "size_bytes": 1753
+      "sha256": "8f601463355717a8397d69a3069e62ccbc67f7972b8065bd19910bfba4cf83bd",
+      "size_bytes": 3091
     },
     {
       "path": "tests/test_audit_curated_corpus.py",
-      "sha256": "17f9bf899006e6ef83148beb73097c797b646c66e836aa5d9dcc03c9a4d31f1d",
-      "size_bytes": 10608
+      "sha256": "222d28436ba7aa1458e4d49c38a1560fbd81502fe00303575921ab56e3b31e09",
+      "size_bytes": 10647
     },
     {
       "path": "tests/test_baseline.py",
-      "sha256": "9aa218087cea09ca710298e6482bc7d9549dd7e0226d8d57986ba44770672fc8",
-      "size_bytes": 7836
+      "sha256": "5f0bdc2f5f44595321a5ac1513daca9ae680d98d392472fd47aad7d2eecb7afb",
+      "size_bytes": 7854
     },
     {
       "path": "tests/test_chinese_ui_acceptance.py",
@@ -194,28 +189,18 @@
     },
     {
       "path": "tests/test_current_qa_evidence.py",
-      "sha256": "63a962ae0dcab6a0175e8e9f1c68fe267bd1f38de2fbfeb23e288e7a4b0fdd76",
-      "size_bytes": 1219
-    },
-    {
-      "path": "tests/test_data_pipeline.py",
-      "sha256": "96653287a4ceac43b456f258f18b8ddc1af2b9b2ed973e2dcc4331a3de6e98a7",
-      "size_bytes": 12353
+      "sha256": "b6c1ea34adca50dc1298e893c1b8f84505d33b60cffbc17d8a91388302a33512",
+      "size_bytes": 1255
     },
     {
       "path": "tests/test_epicurious_curation_v3.py",
-      "sha256": "8523460b49235f1abec5ed473d82686cce284efc8b50c145416ce67a6c3876a4",
-      "size_bytes": 40874
+      "sha256": "d760e8c96d138af0df44dba1472e413d254539eb4f818795ed51165497a5888e",
+      "size_bytes": 40872
     },
     {
       "path": "tests/test_evaluation.py",
-      "sha256": "fb2c7026d9bdeb2a06ea4013e1638b5fb6a22f93741db09665b14b2a7a5e119f",
-      "size_bytes": 32576
-    },
-    {
-      "path": "tests/test_ingredient_benchmark.py",
-      "sha256": "874667b56496e8e1139f31a713e9b84319fedd2c66fe444928397acae1a95156",
-      "size_bytes": 4301
+      "sha256": "fd919545bf6bcddecff3bf85cc727de6efe9a9c48843a094acc64c6dfd4a28f2",
+      "size_bytes": 33299
     },
     {
       "path": "tests/test_input_normalization.py",
@@ -229,18 +214,18 @@
     },
     {
       "path": "tests/test_openai_selector.py",
-      "sha256": "b9aafa71a6cd0474744d49dba5f94742af657d3bde103376442f5a50c75325a6",
-      "size_bytes": 9057
+      "sha256": "2aff2f28f8e266f95dd2a53068bfd1ad337647ec8ffa8efdb5df7cd34b88f7f1",
+      "size_bytes": 9181
     },
     {
       "path": "tests/test_presentation.py",
-      "sha256": "08cbd002c2cc42e590484b1d4cc40f0c9e40aea79710ee230400112336b9be7c",
-      "size_bytes": 1912
+      "sha256": "165dd5686a6bcd9cc565f13136839636ea177e52fc6f0104ddc79a96e5d542b2",
+      "size_bytes": 2274
     },
     {
       "path": "tests/test_retrieval.py",
-      "sha256": "987402f461105b4705d2ab51b8dc4eeb5e9ac8fda02c11eb4f063184992ad835",
-      "size_bytes": 18440
+      "sha256": "78007390bf8c7cb17ef0cbf642b2551268b722aa0a43d313bddbad40cafd396b",
+      "size_bytes": 18840
     },
     {
       "path": "tests/test_rule_checker.py",
@@ -284,8 +269,8 @@
     },
     {
       "path": "tests/test_workflow.py",
-      "sha256": "ce0e88d96499c4b4bddfd6e8aaa70464dd8a3b77bd21281b95a66c536f5bca24",
-      "size_bytes": 11718
+      "sha256": "f9f31a30c5bc8fa1154467565bf28dd12bb11a928899b38d35efe8aa59cd0ba3",
+      "size_bytes": 12918
     }
   ]
 }

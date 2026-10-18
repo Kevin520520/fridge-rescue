@@ -156,6 +156,7 @@ class FridgeRescueWorkflow:
         retriever: RecipeRetriever,
         selector: RecommendationSelector,
         top_k: int = 10,
+        selection_pool_size: int = 3,
         allowed_substitution_notes: Sequence[str] = (),
         allergen_aliases: Mapping[str, list[str]] | None = None,
         ingredient_aliases: Mapping[str, str] | None = None,
@@ -163,10 +164,13 @@ class FridgeRescueWorkflow:
     ) -> None:
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
+        if not 1 <= selection_pool_size <= top_k:
+            raise ValueError("selection_pool_size must be between 1 and top_k")
         self.repository = repository
         self.retriever = retriever
         self.selector = selector
         self.top_k = top_k
+        self.selection_pool_size = selection_pool_size
         self.allowed_substitution_notes = _unique_ids(list(allowed_substitution_notes))
         self.allergen_aliases = dict(allergen_aliases or {})
         self.ingredient_aliases = {
@@ -305,7 +309,9 @@ class FridgeRescueWorkflow:
         records_by_id = {
             record.recipe_id: record for record in self.repository.get_many(ranked_ids)
         }
-        candidate_ids = [recipe_id for recipe_id in ranked_ids if recipe_id in records_by_id]
+        candidate_ids = [
+            recipe_id for recipe_id in ranked_ids if recipe_id in records_by_id
+        ][: self.selection_pool_size]
         candidates = [records_by_id[recipe_id] for recipe_id in candidate_ids]
         trace = _append_trace(state, "retrieve_and_rank")
 

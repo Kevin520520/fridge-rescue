@@ -4,12 +4,16 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.pytest_tmp/
 .pytest_tmp*/
 .pytest-tmp*/
+.tmp/
+.tmp_*.py
+.pipeline*/
 .ruff_cache/
 .streamlit/secrets.toml
-.pipeline_*/
-.tmp_*
+tests/
+scripts/live_smoke.py
 .DS_Store
 Thumbs.db
 
@@ -19,15 +23,26 @@ data/raw/*
 !data/raw/source_metadata.json
 !data/raw/source_schema.json
 
-data/index/*
-!data/index/.gitkeep
-
-# Publish only the three release-evidence directories, not every local trial.
+# Publish only the current compact release evidence, not repetition-level API logs.
 evaluation/results/*
 !evaluation/results/README.md
-!evaluation/results/v31_policy_scan_two_tier_20261018/
-!evaluation/results/v31_policy_scan_two_tier_20261018/**
-!evaluation/results/dev_v31_two_tier_live_20261018/
-!evaluation/results/dev_v31_two_tier_live_20261018/**
-!evaluation/results/formal_v31_final2_20261018/
-!evaluation/results/formal_v31_final2_20261018/**
+!evaluation/results/dev_v32_live_20261018/
+evaluation/results/dev_v32_live_20261018/*
+!evaluation/results/dev_v32_live_20261018/DEVELOPMENT_ANALYSIS.md
+!evaluation/results/dev_v32_live_20261018/RESULT_REVIEW.md
+!evaluation/results/dev_v32_live_20261018/aggregate_report.json
+!evaluation/results/dev_v32_live_20261018/aggregate_summary.csv
+!evaluation/results/dev_v32_live_20261018/case_comparison.csv
+!evaluation/results/dev_v32_live_20261018/frozen_cases.csv
+!evaluation/results/dev_v32_live_20261018/run_config.json
+!evaluation/results/dev_v32_live_20261018/source_manifest.json
+!evaluation/results/formal_v32_20261018/
+evaluation/results/formal_v32_20261018/*
+!evaluation/results/formal_v32_20261018/ANALYSIS.md
+!evaluation/results/formal_v32_20261018/RESULT_REVIEW.md
+!evaluation/results/formal_v32_20261018/aggregate_report.json
+!evaluation/results/formal_v32_20261018/aggregate_summary.csv
+!evaluation/results/formal_v32_20261018/case_comparison.csv
+!evaluation/results/formal_v32_20261018/frozen_cases.csv
+!evaluation/results/formal_v32_20261018/run_config.json
+!evaluation/results/formal_v32_20261018/source_manifest.json

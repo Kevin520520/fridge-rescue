@@ -26,12 +26,23 @@ def ingredient_display_lines(recipe: RecipeRecord) -> list[str]:
     return list(recipe.ingredient_lines_original)
 
 
-def authoritative_source_line_html(text: str, *, prefix: str) -> str:
-    """Render a source line without browser translation changing measurements."""
+def authoritative_source_line_html(
+    text: str,
+    *,
+    prefix: str,
+    highlight_label: str | None = None,
+) -> str:
+    """Render an escaped source line and optionally mark an input match."""
 
     safe_prefix = html.escape(prefix, quote=True)
     safe_text = html.escape(text, quote=True)
+    class_name = "fr-source-line fr-source-line-hit" if highlight_label else "fr-source-line"
+    badge = (
+        f'<span class="fr-source-hit-badge">{html.escape(highlight_label, quote=True)}</span>'
+        if highlight_label
+        else ""
+    )
     return (
-        '<div class="fr-source-line" translate="no" lang="en">'
-        f"{safe_prefix} {safe_text}</div>"
+        f'<div class="{class_name}" translate="no" lang="en">'
+        f"{safe_prefix} {safe_text}{badge}</div>"
     )

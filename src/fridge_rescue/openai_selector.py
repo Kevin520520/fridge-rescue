@@ -267,11 +267,3 @@ class ResponsesRecommendationSelector:
 
         self._enforce_dynamic_allowlists(recommendation, candidates)
         return recommendation
-
-
-# Compatibility aliases for legacy imports.
-OpenAIClientLike = ResponsesClientLike
-OpenAISelectorError = RecommendationSelectorError
-OpenAISelectorServiceError = RecommendationSelectorServiceError
-OpenAISelectorOutputError = RecommendationSelectorOutputError
-OpenAIRecommendationSelector = ResponsesRecommendationSelector

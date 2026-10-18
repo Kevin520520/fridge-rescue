@@ -300,7 +300,7 @@ class DirectBaselineAnswer(Protocol):
 
 
 class DirectBaselineLike(Protocol):
-    """Minimal boundary implemented by :class:`OpenAISinglePromptBaseline`."""
+    """Minimal boundary implemented by :class:`ResponsesSinglePromptBaseline`."""
 
     def generate(self, request: UserRequest) -> DirectBaselineAnswer: ...
 

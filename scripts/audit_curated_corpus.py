@@ -22,7 +22,7 @@ from typing import Any
 import pyarrow.parquet as pq
 import yaml
 
-from fridge_rescue.data_pipeline import scope_exclusion_reason
+from fridge_rescue.curation_common import scope_exclusion_reason
 from fridge_rescue.epicurious_pipeline import (
     content_dedup_hash,
     ingredient_line_rejection_reason,
@@ -63,7 +63,7 @@ REQUIRED_COLUMNS = frozenset(
 
 # These columns belonged to the quantity reconstruction used before Curation v3.
 # Their presence would make it unclear whether displayed units came from the source.
-FORBIDDEN_LEGACY_COLUMNS = frozenset(
+DISALLOWED_SPLIT_QUANTITY_COLUMNS = frozenset(
     {
         "ingredients_original",
         "ingredient_quantities_original",
@@ -318,9 +318,9 @@ def audit_corpus(
     missing_columns = sorted(REQUIRED_COLUMNS - columns)
     if missing_columns:
         add_global("missing_required_columns", ", ".join(missing_columns))
-    legacy_columns = sorted(FORBIDDEN_LEGACY_COLUMNS & columns)
-    if legacy_columns:
-        add_global("legacy_quantity_columns_present", ", ".join(legacy_columns))
+    disallowed_columns = sorted(DISALLOWED_SPLIT_QUANTITY_COLUMNS & columns)
+    if disallowed_columns:
+        add_global("split_quantity_columns_present", ", ".join(disallowed_columns))
 
     if summary.get("selected_rows") != expected_rows:
         add_global(
@@ -716,8 +716,8 @@ def audit_corpus(
         "actual_rows": len(rows),
         "required_minimum_measurement_coverage": MINIMUM_MEASUREMENT_COVERAGE,
         "required_columns": sorted(REQUIRED_COLUMNS),
-        "forbidden_legacy_columns": sorted(FORBIDDEN_LEGACY_COLUMNS),
-        "legacy_columns_present": legacy_columns,
+        "disallowed_split_quantity_columns": sorted(DISALLOWED_SPLIT_QUANTITY_COLUMNS),
+        "disallowed_columns_present": disallowed_columns,
         "source_contract": contract,
         "global_hard_failures": global_failures,
         "records_with_hard_failures": hard_record_count,

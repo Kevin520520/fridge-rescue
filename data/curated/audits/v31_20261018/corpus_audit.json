@@ -3,17 +3,17 @@
   "audit_version": "1.1",
   "corpus_file": "recipes_2000.parquet",
   "corpus_sha256": "1fbeeaa09544940884e64dc94a9b3666658a5956790c7f36487f26892371e690",
-  "expected_rows": 2000,
-  "flagged_rows": 0,
-  "forbidden_legacy_columns": [
+  "disallowed_columns_present": [],
+  "disallowed_split_quantity_columns": [
     "ingredient_quantities_original",
     "ingredient_units_original",
     "ingredients_original",
     "quantity_alignment_status"
   ],
+  "expected_rows": 2000,
+  "flagged_rows": 0,
   "global_hard_failures": [],
   "hard_failure_counts": {},
-  "legacy_columns_present": [],
   "output_files": [
     "corpus_audit.json",
     "record_audit.csv",

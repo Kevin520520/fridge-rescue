@@ -4,10 +4,9 @@ import re
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 
-# A general ingredient name must not claim a processed product as the same
-# inventory item. These narrow exceptions were confirmed by the Curation v2
-# offline retrieval audit; ordinary forms such as chicken breast or cooked
-# rice still match their general ingredient.
+# A general ingredient name must not match a distinct processed product.
+# Ordinary forms such as chicken breast or cooked rice still match their
+# general ingredient.
 NON_EQUIVALENT_INGREDIENT_PRODUCTS: dict[str, tuple[str, ...]] = {
     "chicken": (
         "chicken broth",

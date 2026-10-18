@@ -147,8 +147,3 @@ class ResponsesSinglePromptBaseline:
             raise BaselineError(
                 f"{self.provider_name} returned invalid baseline structured output"
             ) from exc
-
-
-# Compatibility aliases for legacy imports.
-OpenAIClientLike = ResponsesClientLike
-OpenAISinglePromptBaseline = ResponsesSinglePromptBaseline

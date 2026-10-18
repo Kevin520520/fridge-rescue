@@ -5,15 +5,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 from collections import Counter
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-import pyarrow.parquet as pq
-
-from fridge_rescue.data_pipeline import parse_iso8601_minutes
 from fridge_rescue.epicurious_pipeline import (
     REQUIRED_COLUMNS,
     SOURCE_FILE_NAME,
@@ -25,154 +20,6 @@ from fridge_rescue.epicurious_pipeline import (
 from fridge_rescue.settings import PROJECT_ROOT
 
 BATCH_SIZE = 8192
-LEGACY_REQUIRED_COLUMNS = frozenset(
-    {
-        "RecipeId",
-        "Name",
-        "CookTime",
-        "PrepTime",
-        "TotalTime",
-        "Description",
-        "RecipeCategory",
-        "Keywords",
-        "RecipeIngredientQuantities",
-        "RecipeIngredientParts",
-        "AggregatedRating",
-        "ReviewCount",
-        "RecipeServings",
-        "RecipeYield",
-        "RecipeInstructions",
-    }
-)
-LEGACY_PROFILE_COLUMNS = (
-    "RecipeId",
-    "Name",
-    "Description",
-    "RecipeCategory",
-    "TotalTime",
-    "RecipeIngredientQuantities",
-    "RecipeIngredientParts",
-    "RecipeInstructions",
-)
-LEGACY_TEXT_COLUMNS = frozenset({"Name", "Description", "RecipeCategory", "TotalTime"})
-LEGACY_LIST_COLUMNS = frozenset(
-    {"RecipeIngredientQuantities", "RecipeIngredientParts", "RecipeInstructions"}
-)
-
-
-def count_empty(values: Iterable[Any], *, list_column: bool) -> int:
-    if list_column:
-        return sum(value is not None and len(value) == 0 for value in values)
-    return sum(isinstance(value, str) and not value.strip() for value in values)
-
-
-def _profile_legacy_parquet(source: Path, *, batch_size: int) -> dict[str, Any]:
-    """Keep the old profiler available for tests and archived source audits."""
-
-    parquet = pq.ParquetFile(source)
-    schema_names = set(parquet.schema_arrow.names)
-    missing_columns = sorted(LEGACY_REQUIRED_COLUMNS - schema_names)
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
-
-    key_columns = LEGACY_TEXT_COLUMNS | LEGACY_LIST_COLUMNS
-    null_counts = {name: 0 for name in key_columns}
-    empty_counts = {name: 0 for name in key_columns}
-    duration_counts = {
-        "missing_or_blank": 0,
-        "invalid_format": 0,
-        "non_positive": 0,
-        "over_1440_minutes": 0,
-        "valid_1_to_1440_minutes": 0,
-    }
-    recipe_id_counts = {
-        "null_or_non_finite": 0,
-        "non_integral": 0,
-        "non_positive": 0,
-        "valid_integral_rows": 0,
-        "duplicate_rows": 0,
-    }
-    seen_recipe_ids: set[int] = set()
-    scanned_rows = 0
-
-    for batch in parquet.iter_batches(batch_size=batch_size, columns=list(LEGACY_PROFILE_COLUMNS)):
-        scanned_rows += batch.num_rows
-        batch_columns = {
-            name: batch.column(batch.schema.get_field_index(name))
-            for name in LEGACY_PROFILE_COLUMNS
-        }
-        for name in key_columns:
-            array = batch_columns[name]
-            null_counts[name] += array.null_count
-            empty_counts[name] += count_empty(
-                array.to_pylist(), list_column=name in LEGACY_LIST_COLUMNS
-            )
-        for value in batch_columns["TotalTime"].to_pylist():
-            if value is None or (isinstance(value, str) and not value.strip()):
-                duration_counts["missing_or_blank"] += 1
-                continue
-            minutes = parse_iso8601_minutes(value)
-            if minutes is None:
-                duration_counts["invalid_format"] += 1
-            elif minutes <= 0:
-                duration_counts["non_positive"] += 1
-            elif minutes > 1440:
-                duration_counts["over_1440_minutes"] += 1
-            else:
-                duration_counts["valid_1_to_1440_minutes"] += 1
-        for value in batch_columns["RecipeId"].to_pylist():
-            if value is None:
-                recipe_id_counts["null_or_non_finite"] += 1
-                continue
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                recipe_id_counts["null_or_non_finite"] += 1
-                continue
-            if not math.isfinite(numeric):
-                recipe_id_counts["null_or_non_finite"] += 1
-            elif not numeric.is_integer():
-                recipe_id_counts["non_integral"] += 1
-            elif numeric <= 0:
-                recipe_id_counts["non_positive"] += 1
-            else:
-                recipe_id = int(numeric)
-                recipe_id_counts["valid_integral_rows"] += 1
-                if recipe_id in seen_recipe_ids:
-                    recipe_id_counts["duplicate_rows"] += 1
-                else:
-                    seen_recipe_ids.add(recipe_id)
-
-    metadata_rows = parquet.metadata.num_rows
-    if scanned_rows != metadata_rows:
-        raise ValueError("Parquet batch scan differs from metadata row count")
-    recipe_id_counts["unique_valid_ids"] = len(seen_recipe_ids)
-    recipe_id_counts["all_rows_unique_positive_integers"] = (
-        recipe_id_counts["valid_integral_rows"] == scanned_rows
-        and recipe_id_counts["duplicate_rows"] == 0
-    )
-    return {
-        "source": str(source),
-        "row_groups": parquet.num_row_groups,
-        "total_rows": metadata_rows,
-        "scan_batch_size": batch_size,
-        "required_columns": {"all_present": True, "missing": []},
-        "schema": [
-            {"name": field.name, "type": str(field.type), "nullable": field.nullable}
-            for field in parquet.schema_arrow
-        ],
-        "quality": {
-            "key_columns": {
-                name: {
-                    "null_count": null_counts[name],
-                    "empty_string_or_list_count": empty_counts[name],
-                }
-                for name in sorted(key_columns)
-            },
-            "total_time": duration_counts,
-            "recipe_id": recipe_id_counts,
-        },
-    }
 
 
 def _count_bucket(value: int, *, kind: str) -> str:
@@ -285,12 +132,9 @@ def _profile_epicurious_csv(source: Path) -> dict[str, Any]:
 
 
 def profile_source(source: Path, *, batch_size: int = BATCH_SIZE) -> dict[str, Any]:
-    """Profile either the current CSV or an archived Food.com Parquet source."""
+    """Profile the pinned Epicurious CSV used by the current corpus."""
 
-    with source.open("rb") as handle:
-        is_parquet = handle.read(4) == b"PAR1"
-    if is_parquet:
-        return _profile_legacy_parquet(source, batch_size=batch_size)
+    del batch_size
     return _profile_epicurious_csv(source)
 
 
@@ -304,8 +148,6 @@ def print_report(report: dict[str, Any], output: Path) -> None:
         print(f"Ingredient parse errors: {sum(parsing['errors'].values()):,}")
         print(f"Mean source measurement coverage: {coverage['mean']:.1%}")
         print(f"Duplicate source IDs: {report['quality']['source_record_id']['duplicate_rows']:,}")
-    else:
-        print(f"Columns found: {len(report['schema'])}")
     print(f"Schema and quality report: {output}")
 
 

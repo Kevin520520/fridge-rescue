@@ -317,19 +317,20 @@ def _match_details_from_canonical_terms(
         for ingredient in required
         if not any(_normalized_terms_overlap(ingredient, staple) for staple in pantry)
     ]
-    target_inputs = [
-        available_item
-        for available_item in available
-        if not any(_normalized_terms_overlap(available_item, staple) for staple in pantry)
-    ] or list(available)
-
-    return _match_details_for_non_pantry(non_pantry, available, target_inputs)
+    return _match_details_for_non_pantry(
+        non_pantry,
+        available,
+        available,
+        input_required=required,
+    )
 
 
 def _match_details_for_non_pantry(
     non_pantry: Sequence[str],
     available: Sequence[str],
     target_inputs: Sequence[str],
+    *,
+    input_required: Sequence[str] | None = None,
 ) -> IngredientMatchDetails:
     """Compute request-specific metrics for an already prepared ingredient list."""
 
@@ -341,8 +342,15 @@ def _match_details_for_non_pantry(
         for ingredient in non_pantry
     ]
     recipe_matches = [any(matches) for matches in match_matrix]
+    input_match_matrix = [
+        [
+            _normalized_terms_overlap(ingredient, available_item)
+            for available_item in available
+        ]
+        for ingredient in (input_required if input_required is not None else non_pantry)
+    ]
     input_matches = [
-        any(matches[input_index] for matches in match_matrix)
+        any(matches[input_index] for matches in input_match_matrix)
         for input_index in range(len(available))
     ]
     available_match_map = dict(zip(available, input_matches, strict=True))
@@ -575,14 +583,7 @@ class DeterministicRecipeRetriever:
                 for item in request.available_ingredients
             )
         )
-        target_inputs = [
-            available_item
-            for available_item in available
-            if not any(
-                _normalized_terms_overlap(available_item, staple)
-                for staple in self._pantry_staples
-            )
-        ] or available
+        target_inputs = available
         ranked: list[_RankedRecipe] = []
         rescue_ranked: list[_RankedRecipe] = []
         for prepared in self._prepared_recipes:
@@ -593,6 +594,7 @@ class DeterministicRecipeRetriever:
                 prepared.non_pantry_ingredients,
                 available,
                 target_inputs,
+                input_required=prepared.canonical_ingredients,
             )
             coverage = match.recipe_coverage
             missing_count = match.missing_count

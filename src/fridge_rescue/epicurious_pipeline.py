@@ -12,7 +12,7 @@ from fractions import Fraction
 from functools import lru_cache
 from typing import Any
 
-from fridge_rescue.data_pipeline import (
+from fridge_rescue.curation_common import (
     broad_category,
     clean_text,
     infer_diet_status,

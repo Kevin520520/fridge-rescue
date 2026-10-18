@@ -104,16 +104,6 @@ class Settings(BaseSettings):
         value = key.get_secret_value().strip()
         return bool(value and not value.startswith("replace_"))
 
-    @property
-    def has_valid_openai_key(self) -> bool:
-        """Backward-compatible OpenAI-specific presence check."""
-
-        if self.openai_api_key is None:
-            return False
-        value = self.openai_api_key.get_secret_value().strip()
-        return bool(value and not value.startswith("replace_"))
-
-
 def get_settings() -> Settings:
     """Load settings lazily from the active environment."""
 

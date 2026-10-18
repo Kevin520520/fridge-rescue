@@ -209,7 +209,6 @@ scope_exclusion_markers:
 
 # Source rows below contain confirmed ingredient-list pollution in the pinned
 # CSV (equipment, external components, metadata, or corrupted quantities).
-# Evidence: evaluation/results/corpus_v31_adversarial_candidate4_20261018/.
 reviewed_source_exclusions:
   - 263
   - 634
@@ -408,8 +407,8 @@ reviewed_source_exclusions:
   - 13234
   - 13288
   - 13375
-  # Candidate 7: manually confirmed external prepared-component dependencies
-  # or local component labels. These records are rejected intact; no source
+  # Confirmed external prepared-component dependencies or local component
+  # labels. These records are rejected intact; no source
   # ingredient line is removed or rewritten to make the record pass.
   - 318
   - 373
@@ -467,7 +466,7 @@ reviewed_source_exclusions:
   - 12931
   - 13039
   - 13262
-  # Candidate 7: remaining confirmed equipment, metadata, and quantity defects.
+  # Confirmed equipment, metadata, and quantity defects.
   - 691
   - 710
   - 1390
@@ -500,14 +499,14 @@ reviewed_source_exclusions:
   - 8609
   - 10967
   - 11582
-  # Candidate 8: equipment-only source lines found after deterministic resampling.
+  # Equipment-only source lines found after deterministic resampling.
   - 4257
   - 11860
   - 12164
-  # Candidate 9: equipment-only source line found after deterministic resampling.
+  # Equipment-only source line found after deterministic resampling.
   - 7077
-  # Candidate 10: independent source-line audit (equipment, external prepared
-  # components, metadata, malformed conversions, and text corruption).
+  # Source-line audit exclusions: equipment, external prepared components,
+  # metadata, malformed conversions, and text corruption.
   - 497
   - 547
   - 1385
@@ -557,29 +556,29 @@ reviewed_source_exclusions:
   - 12484
   - 12508
   - 12514
-  # Candidate 13: equipment lines introduced by deterministic replacement rows.
+  # Equipment lines found in deterministic replacement rows.
   - 9939
   - 12720
-  # Candidate 12: confirmed incomplete or internally inconsistent quantities.
+  # Confirmed incomplete or internally inconsistent quantities.
   - 1970
   - 2199
   - 6737
   - 11274
   - 11773
-  # Candidate 13: shopping prose stored as ingredient lines.
+  # Shopping prose stored as ingredient lines.
   - 2279
   - 7627
-  # Candidate 13 extended scan: spurious quantities, a concatenated ingredient,
+  # Extended source scan: spurious quantities, a concatenated ingredient,
   # and an equipment-only jars/containers line.
   - 4892
   - 7402
   - 9785
-  # Candidate 16: independent replacement-row audit.
+  # Replacement-row audit exclusions.
   - 2112
   - 3436
   - 8831
   - 11268
-  # Candidate 16 full-pass audit: source quantity grammar, required external
+  # Full-pass audit exclusions: source quantity grammar, required external
   # components, standalone equipment, and instruction-field metadata.
   - 1423
   - 1435
@@ -616,14 +615,14 @@ reviewed_source_exclusions:
   - 12162
   - 12641
   - 13494
-  # Candidate 19: standalone Y-shaped vegetable peeler.
+  # Standalone Y-shaped vegetable peeler stored as recipe content.
   - 5834
-  # Candidate 19: required unexpanded components and a broken ingredient fragment.
+  # Required unexpanded components and a broken ingredient fragment.
   - 2489
   - 7324
   - 7544
   - 11905
-  # Candidate 16 independent full-field audit: objective metadata, quantity,
+  # Full-field audit exclusions: objective metadata, quantity,
   # OCR, spacing, delimiter, and text-integrity defects.
   - 181
   - 365
@@ -678,9 +677,9 @@ reviewed_source_exclusions:
   - 12921
   - 12993
   - 13141
-  # Candidate 20: dual independent full-field audit. Each source row below
-  # contains a confirmed quantity/unit defect, equipment or metadata stored as
-  # recipe content, an unexpanded external component, or source-text corruption.
+  # Each source row below contains a confirmed quantity or unit defect,
+  # equipment or metadata stored as recipe content, an unexpanded external
+  # component, or source-text corruption.
   - 153
   - 319
   - 369
@@ -844,12 +843,11 @@ reviewed_source_exclusions:
   - 13201
   - 13458
   - 13465
-  # Candidate 21 replacement rows: inconsistent mixed-number unit grammar and
+  # Replacement rows with inconsistent mixed-number unit grammar and
   # a joined fraction inside a procedural step.
   - 4483
   - 5649
-  # Candidate 22: frozen union of two independent, full-field scans. These
-  # source rows contain objective OCR/token corruption, malformed quantities,
+  # Source rows with objective OCR/token corruption, malformed quantities,
   # non-recipe metadata or equipment, truncated text, or unresolved components.
   - 75
   - 84
@@ -947,8 +945,8 @@ reviewed_source_exclusions:
   - 13291
   - 13394
   - 13491
-  # Candidate 23 release-gate union: objective issues found in replacement
-  # rows, including external components, equipment/metadata, token corruption,
+  # Release-gate exclusions found in replacement rows: external components,
+  # equipment or metadata, token corruption,
   # concatenated fields, and one inconsistent cup/fluid-ounce conversion.
   - 140
   - 274
@@ -983,14 +981,14 @@ reviewed_source_exclusions:
   - 9097
   - 11314
   - 13214
-  # Candidate 24 replacement row: equipment stored as an ingredient line.
+  # Replacement row with equipment stored as an ingredient line.
   - 2543
-  # Candidate 25 replacement row: canning equipment stored as an ingredient.
+  # Replacement row with canning equipment stored as an ingredient.
   - 11294
-  # Candidate 26 replacement row: required external cake plus baking tins in
+  # Replacement row with a required external cake plus baking tins in
   # the ingredient field, with no self-contained base-cake recipe.
   - 1955
-  # Candidate 27 surviving source defect: fraction and unit glued in a step.
+  # Fraction and unit glued together in a procedural step.
   - 619
 
 diet_conflict_markers:
