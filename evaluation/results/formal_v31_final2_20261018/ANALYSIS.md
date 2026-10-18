@@ -62,3 +62,10 @@ test a separately designed deterministic sanitizer on a new held-out set.
 
 The two-tier retrieval policy was selected on the development set before this
 formal run. The formal results are frozen and should be reported as measured.
+
+After the formal run, one presentation-only bug was found during the live
+deployment smoke test: the Local retrieval explanation counted assumed pantry
+staples as ingredients the user explicitly entered. The UI wording now reports
+requested-input utilization separately from the extra shopping list. Retrieval,
+selection, validation, and all saved formal metrics were unchanged; the frozen
+source manifest intentionally retains the exact pre-presentation-fix app hash.

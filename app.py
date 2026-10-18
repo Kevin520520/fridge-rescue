@@ -292,6 +292,24 @@ def _coverage_summary(
     return matched, missing
 
 
+def _requested_ingredient_summary(
+    recipe: RecipeRecord,
+    request: UserRequest,
+    pantry_staples: Sequence[str],
+    ingredient_aliases: Mapping[str, str],
+) -> tuple[int, int]:
+    """Return matched and total user-requested ingredients, excluding pantry assumptions."""
+
+    details = ingredient_match_details(
+        recipe,
+        request.available_ingredients,
+        pantry_staples,
+        ingredient_aliases,
+    )
+    total_requested = len(details.matched_inputs) + len(details.unmatched_inputs)
+    return details.matched_input_count, total_requested
+
+
 def _display_recipe(
     recipe: RecipeRecord,
     request: UserRequest,
@@ -301,7 +319,13 @@ def _display_recipe(
     reason: str,
     substitution_notes: Sequence[str] = (),
 ) -> None:
-    matched, missing = _coverage_summary(
+    _, missing = _coverage_summary(
+        recipe,
+        request,
+        pantry_staples,
+        ingredient_aliases,
+    )
+    matched_requested, total_requested = _requested_ingredient_summary(
         recipe,
         request,
         pantry_staples,
@@ -314,7 +338,11 @@ def _display_recipe(
             facts.append(f"⏱️ {recipe.total_time_minutes} min")
         if recipe.rating is not None:
             facts.append(f"⭐ {recipe.rating:.1f}/5")
-        facts.append(f"🧺 {len(matched)}/{len(recipe.ingredients_normalized)} ingredients covered")
+        facts.append(
+            f"🥕 {matched_requested}/{total_requested} requested ingredients used"
+        )
+        if missing:
+            facts.append(f"🛒 {len(missing)} extra ingredients needed")
         st.caption(" · ".join(facts))
         st.write(reason)
 
@@ -546,13 +574,16 @@ if submitted:
                     if not recipes:
                         st.warning("No recipe matches these ingredients and filters yet.")
                     for recipe in recipes:
-                        matched, _ = _coverage_summary(
+                        matched_requested, total_requested = _requested_ingredient_summary(
                             recipe,
                             request,
                             pantry_staples,
                             ingredient_aliases,
                         )
-                        reason = f"Matches {len(matched)} of the ingredients you already have."
+                        reason = (
+                            f"Uses {matched_requested}/{total_requested} of your requested "
+                            "ingredients."
+                        )
                         _display_recipe(
                             recipe,
                             request,
