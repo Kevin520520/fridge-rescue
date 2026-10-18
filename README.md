@@ -1,48 +1,50 @@
 # Fridge Rescue
 
-Fridge Rescue is a bilingual recipe recommender for ingredients already available at home.
-It combines a curated local collection of 2,000 recipes, deterministic retrieval, a
-LangGraph workflow, and an optional DeepSeek or OpenAI model.
+Fridge Rescue is a bilingual Agentic AI recipe recommender. It searches a curated local
+collection of 2,000 Food.com recipes and can optionally use DeepSeek or OpenAI to select
+and validate recommendations.
 
-This repository contains the runnable application and the reproducible corpus-building
-pipeline. Development tests, experiment outputs, the 170 MB raw source, and audit archives
-are intentionally excluded.
+> The processed 2,000-recipe corpus is already included. Normal users do not need to
+> download or process the Kaggle source again. An API key is also optional because the
+> local retrieval mode works offline.
 
-## What is included
+## 中文 Windows 快速开始（推荐）
 
-- **Offline retrieval preview:** works without an API key.
-- **Agentic AI workflow:** retrieves recipe candidates, lets the model select recipe IDs,
-  validates the result, and performs at most one repair.
-- **Single-prompt comparison:** calls the same configured model without the local corpus or
-  workflow.
-- **Curated corpus:** 2,000 Food.com recipes stored locally in Parquet format.
-- **Reproducible data pipeline:** optional scripts download the fixed Kaggle source,
-  inspect its schema, clean and deduplicate records, and rebuild the 2,000-recipe corpus.
-- **Chinese ingredient aliases:** a reviewed set of common Chinese ingredient names is
-  normalized to the English corpus vocabulary.
+### 1. 下载并解压项目
 
-## Requirements
+最简单的方法：
 
-- Python 3.11, 3.12, or 3.13
-- Internet access for installing packages, using a live AI mode, or optionally rebuilding data
-- A personal DeepSeek or OpenAI API key for live AI modes
+1. 点击GitHub页面右上方的 **Code**。
+2. 选择 **Download ZIP**。
+3. 下载完成后右键ZIP文件，选择**全部解压**。不要直接在压缩包中运行。
+4. 打开VS Code，选择 **File → Open Folder**，打开解压后的 `fridge-rescue-main`
+   文件夹。正确的文件夹中应该能看到 `app.py` 和 `pyproject.toml`。
+5. 在VS Code中选择 **Terminal → New Terminal**。
 
-The processed 2,000-recipe corpus is already included. Normal users do **not** need to
-download or process the Kaggle data again.
-
-## Get the project
-
-After accepting the private GitHub repository invitation, either download the repository
-as a ZIP from **Code → Download ZIP**, or clone it:
+如果已经安装Git，也可以在PowerShell中运行：
 
 ```powershell
 git clone https://github.com/Kevin520520/fridge-rescue.git
 cd fridge-rescue
 ```
 
-## Run locally on Windows
+### 2. 检查Python
 
-Open PowerShell in the extracted or cloned project directory:
+在VS Code终端中运行：
+
+```powershell
+py --version
+py -0p
+```
+
+项目支持Python 3.11、3.12和3.13。如果显示“无法识别 `py`”，请先从
+[python.org/downloads](https://www.python.org/downloads/) 安装上述版本之一，安装时勾选
+**Add python.exe to PATH**，
+然后完全关闭并重新打开VS Code。
+
+### 3. 安装并启动应用
+
+下面四条命令需要逐条运行：
 
 ```powershell
 py -3.13 -m venv .venv
@@ -51,34 +53,71 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-If Python 3.13 is unavailable, replace `-3.13` with `-3.12` or `-3.11`.
+如果电脑安装的是Python 3.12或3.11，把第一条命令中的 `-3.13` 分别改成
+`-3.12` 或 `-3.11`，其余命令不变。
 
-Streamlit will show a local address such as `http://localhost:8501`. Open it in a browser.
-Without an API key, the application automatically offers the offline retrieval preview.
-Press `Ctrl+C` in PowerShell to stop the application.
+第一次启动Streamlit时，终端可能询问 `Email:`。可以直接留空并按Enter。
+随后打开终端显示的 **Local URL**，通常是 `http://localhost:8501`。如果显示其他
+端口，以终端实际地址为准。运行期间不要关闭终端。
 
-## Enable the live AI modes
+### 4. 用30秒确认部署成功
 
-Create a private local configuration file:
+没有配置API Key时，页面只显示 **Local retrieval · 本地检索**，这是正常现象。
+
+1. 在“可用食材”中输入 `egg, tomato, cooked rice`，或输入 `鸡蛋，番茄，米饭`。
+2. 点击 **Find recipes**。
+3. 页面能够显示菜谱标题、食材和步骤，即表示本地部署成功。
+4. 回到终端按 `Ctrl+C` 可以关闭应用。
+
+### 5. 可选：开启Agentic和Single-prompt模式
+
+离线模式不需要API Key。只有需要体验AI模式时才执行：
 
 ```powershell
 Copy-Item .env.example .env
+notepad .env
 ```
 
-Open `.env`, replace `replace_with_your_own_key` with your own DeepSeek key, save the file,
-and restart Streamlit. Never upload `.env` or share an API key in screenshots or chat.
+把 `.env` 中的 `replace_with_your_own_key` 替换为自己的DeepSeek API Key，保存并
+关闭记事本。回到终端按 `Ctrl+C` 停止应用，然后重新运行：
 
-The default configuration is:
-
-```text
-LLM_PROVIDER=deepseek
-DEEPSEEK_MODEL=deepseek-flash
-DEEPSEEK_BASE_URL=https://api.deepseek.com
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-OpenAI is an optional alternative; instructions are provided in `.env.example`.
+重新打开页面后，应当可以选择 **Smart recommendation · 智能推荐**、
+**Single-prompt AI · 单次 AI** 和 **Local retrieval · 本地检索**。不要把 `.env`
+上传到GitHub，也不要在聊天或截图中分享API Key。
 
-## Run on macOS or Linux
+### 常见问题
+
+- **提示无法识别 `py`：** Python尚未安装或没有加入PATH；安装后重新打开VS Code。
+- **提示找不到 `app.py` 或 `pyproject.toml`：** 当前终端不在项目根目录；应进入同时
+  包含这两个文件的文件夹。
+- **只显示本地检索模式：** 这是没有有效API Key时的正常表现；离线功能仍可使用。
+- **网页没有自动打开：** 手动打开终端显示的Local URL。
+- **8501端口被占用：** Streamlit通常会显示另一个可用端口，请使用终端实际地址。
+- **关闭终端后网页失效：** 应用依赖本地终端进程，需要重新运行最后一条启动命令。
+
+## English quick start
+
+Python 3.11, 3.12, or 3.13 is required. Clone the public repository and run the following
+commands from the project root:
+
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/Kevin520520/fridge-rescue.git
+cd fridge-rescue
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Use `-3.12` or `-3.11` in the first command when appropriate.
+
+### macOS or Linux
 
 ```bash
 git clone https://github.com/Kevin520520/fridge-rescue.git
@@ -89,14 +128,29 @@ python3 -m venv .venv
 ./.venv/bin/python -m streamlit run app.py
 ```
 
+Without an API key, the application automatically offers the offline retrieval mode.
+To enable live AI modes, copy `.env.example` to `.env`, add a personal DeepSeek or OpenAI
+key, and restart Streamlit.
+
+## Application modes
+
+- **Local retrieval:** searches the included corpus without an external model or API cost.
+- **Agentic AI workflow:** retrieves candidates, lets the model select recipe IDs, validates
+  the output, and performs at most one repair.
+- **Single-prompt comparison:** calls the same configured model without the local corpus or
+  Agentic workflow.
+
+Agentic and single-prompt modes use the same configured provider and model. This keeps the
+course comparison focused on the value of retrieval and orchestration.
+
 ## Optional: rebuild the 2,000-recipe corpus
 
-This section is for reproducing the data preparation process, not for normal application
-use. It downloads the fixed Food.com v2 source, which is approximately 170 MB, and
-regenerates `data/curated/recipes_2000.parquet`. No LLM API key is required, but allow at
-least 1 GB of free disk space for the download, cache, and generated files.
+This section reproduces the data preparation process and is not required for normal use.
+It downloads the fixed Food.com v2 source, which is approximately 170 MB, and regenerates
+`data/curated/recipes_2000.parquet`. No LLM API key is required, but allow at least 1 GB of
+free disk space for the download, cache, and generated files.
 
-On Windows:
+Stop Streamlit first, then run on Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[data]"
@@ -108,11 +162,13 @@ On Windows:
 On macOS or Linux, use `./.venv/bin/python` in place of
 `.\.venv\Scripts\python.exe`.
 
-The scripts use a fixed Kaggle dataset version and random seed. They also generate a source
-schema, record manifest, deterministic QA sample, data card, and curation summary. Do not
-run these commands unless you intentionally want to rebuild the provided corpus.
-`curate_corpus.py` replaces the included `recipes_2000.parquet`; stop Streamlit before
-running it and restart the application after the rebuild finishes.
+The scripts use a fixed Kaggle dataset version and random seed. They download and verify
+the source, inspect its schema, clean and deduplicate valid records, apply deterministic
+stratified sampling, and generate the final 2,000-recipe corpus. They also write a source
+schema, manifest, QA sample, data card, and curation summary.
+
+`curate_corpus.py` replaces the included `recipes_2000.parquet`. Restart the application
+after the rebuild finishes.
 
 ## Repository structure
 
@@ -122,13 +178,13 @@ src/fridge_rescue/             retrieval, model calls, validation, and workflow
 src/fridge_rescue/data_pipeline.py
                                reusable parsing, cleaning, and validation functions
 scripts/download_source.py     download and verify the fixed Kaggle source
-scripts/inspect_source.py      inspect the source schema and data quality
+scripts/inspect_source.py      inspect source structure and data quality
 scripts/curate_corpus.py       clean, deduplicate, sample, and write 2,000 recipes
 data/curated/recipes_2000.parquet
-                               local recipe corpus required by the application
-config.yaml                    retrieval thresholds
-rules.yaml                     ingredient aliases and deterministic rules
-prompts.yaml                   model role and repair prompts
+                               processed local corpus used directly by the application
+config.yaml                    retrieval thresholds and fixed corpus settings
+rules.yaml                     ingredient aliases and deterministic curation rules
+prompts.yaml                   model roles and repair prompts
 .streamlit/config.toml         interface theme
 .env.example                   safe configuration template without secrets
 ```
@@ -137,4 +193,4 @@ prompts.yaml                   model role and repair prompts
 
 The curated corpus is derived from the Food.com Recipes and Reviews dataset on Kaggle,
 version 2 (`irkaal/foodcom-recipes-and-reviews`). The source dataset is CC0 1.0 Public
-Domain.
+Domain. The raw source is intentionally not stored in this repository.
