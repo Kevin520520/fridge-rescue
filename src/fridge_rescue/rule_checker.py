@@ -1,7 +1,7 @@
 """Small deterministic helpers used before and after LLM calls."""
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 
 # A general ingredient name must not claim a processed product as the same
@@ -74,6 +74,42 @@ def contains_any_phrase(text: str, phrases: Iterable[str]) -> bool:
     )
 
 
+@lru_cache(maxsize=32)
+def _compiled_ingredient_aliases(
+    items: tuple[tuple[str, str], ...],
+) -> tuple[re.Pattern[str] | None, dict[str, str]]:
+    lookup = dict(items)
+    if not lookup:
+        return None, lookup
+    alternatives = "|".join(
+        re.escape(source) for source in sorted(lookup, key=len, reverse=True)
+    )
+    return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)"), lookup
+
+
+def canonicalize_ingredient(
+    value: str,
+    aliases: Mapping[str, str] | None = None,
+) -> str:
+    """Apply reviewed ingredient aliases to a normalized term or full line."""
+
+    normalized = normalize_token(value)
+    items = tuple(
+        sorted(
+            (normalize_token(str(source)), normalize_token(str(target)))
+            for source, target in (aliases or {}).items()
+            if normalize_token(str(source)) and normalize_token(str(target))
+        )
+    )
+    pattern, lookup = _compiled_ingredient_aliases(items)
+    exact = lookup.get(normalized)
+    if exact is not None:
+        return exact
+    if pattern is None:
+        return normalized
+    return pattern.sub(lambda match: lookup[match.group(0)], normalized)
+
+
 def ingredient_terms_are_non_equivalent(first: str, second: str) -> bool:
     """Return true for a reviewed general-item/processed-product mismatch."""
 
@@ -103,19 +139,33 @@ def find_excluded_matches(
     recipe_ingredients: Iterable[str],
     excluded_ingredients: Iterable[str],
     allergen_aliases: dict[str, list[str]] | None = None,
+    ingredient_aliases: Mapping[str, str] | None = None,
 ) -> set[str]:
     """Return exclusions whose exact normalized term or reviewed alias is present.
 
     This is a text risk screen, not a medical allergy guarantee.
     """
 
-    haystack = [normalize_token(item) for item in recipe_ingredients]
+    haystack = [
+        canonicalize_ingredient(item, ingredient_aliases) for item in recipe_ingredients
+    ]
     alias_map = allergen_aliases or {}
     matches: set[str] = set()
 
     for exclusion in excluded_ingredients:
         key = normalize_token(exclusion)
-        terms = {key, *(normalize_token(alias) for alias in alias_map.get(key, []))}
+        canonical_key = canonicalize_ingredient(key, ingredient_aliases)
+        allergen_terms = [
+            *alias_map.get(key, []),
+            *alias_map.get(canonical_key, []),
+        ]
+        terms = {
+            canonical_key,
+            *(
+                canonicalize_ingredient(alias, ingredient_aliases)
+                for alias in allergen_terms
+            ),
+        }
         if any(contains_phrase(ingredient, term) for ingredient in haystack for term in terms):
             matches.add(key)
 

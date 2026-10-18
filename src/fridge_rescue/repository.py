@@ -17,9 +17,7 @@ DEFAULT_CURATED_CORPUS_PATH = PROJECT_ROOT / "data" / "curated" / "recipes_2000.
 _COLUMN_MAP = {
     "recipe_id": "recipe_id",
     "title": "title",
-    "ingredients_original": "ingredients_original",
-    "ingredient_quantities_original": "ingredient_quantities_original",
-    "quantity_alignment_status": "quantity_alignment_status",
+    "ingredient_lines_original": "ingredient_lines_original",
     "ingredients_normalized": "ingredients_normalized",
     "instructions_original": "instructions_original",
     "total_time_minutes_derived": "total_time_minutes",

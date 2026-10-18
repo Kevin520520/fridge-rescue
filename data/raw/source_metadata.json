@@ -1,0 +1,14 @@
+{
+  "dataset_name": "Epicurious Recipes (13k)",
+  "file_name": "epicurious_recipes.csv",
+  "file_size_bytes": 26595455,
+  "expected_size_bytes": 26595455,
+  "sha256": "d0e3977da7c1dc287ed75d6770f4064a7caeaa20ef6f64708b730e02f4d5f17a",
+  "expected_sha256": "d0e3977da7c1dc287ed75d6770f4064a7caeaa20ef6f64708b730e02f4d5f17a",
+  "expected_row_count": 13501,
+  "downloaded_or_verified_at_utc": "2026-10-18T05:57:35.976876+00:00",
+  "license": "CC BY-SA 3.0",
+  "source_url": "https://raw.githubusercontent.com/josephrmartinez/recipe-dataset/c5a1e8dab69d46841d914be1f20cca6fbe4b6260/13k-recipes.csv",
+  "source_repository_url": "https://github.com/josephrmartinez/recipe-dataset",
+  "source_revision": "c5a1e8dab69d46841d914be1f20cca6fbe4b6260"
+}

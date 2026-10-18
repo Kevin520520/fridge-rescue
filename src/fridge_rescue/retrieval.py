@@ -6,6 +6,7 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
@@ -13,8 +14,7 @@ import yaml
 
 from fridge_rescue.repository import ParquetRecipeRepository
 from fridge_rescue.rule_checker import (
-    find_excluded_matches,
-    ingredient_terms_overlap,
+    NON_EQUIVALENT_INGREDIENT_PRODUCTS,
     normalize_token,
 )
 from fridge_rescue.schemas import RecipeRecord, UserRequest
@@ -34,6 +34,8 @@ class RetrievalPolicy:
 
     minimum_coverage: float = 0.25
     max_missing_ingredients: int = 6
+    rescue_minimum_coverage: float | None = None
+    rescue_max_missing_ingredients: int | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.minimum_coverage, bool) or not isinstance(
@@ -48,6 +50,31 @@ class RetrievalPolicy:
             raise TypeError("max_missing_ingredients must be an integer")
         if self.max_missing_ingredients < 0:
             raise ValueError("max_missing_ingredients must be non-negative")
+        rescue_values = (
+            self.rescue_minimum_coverage,
+            self.rescue_max_missing_ingredients,
+        )
+        if (rescue_values[0] is None) != (rescue_values[1] is None):
+            raise ValueError("Both rescue thresholds must be supplied together")
+        if self.rescue_minimum_coverage is not None:
+            if isinstance(self.rescue_minimum_coverage, bool) or not isinstance(
+                self.rescue_minimum_coverage, int | float
+            ):
+                raise TypeError("rescue_minimum_coverage must be a number")
+            if not 0 < float(self.rescue_minimum_coverage) <= self.minimum_coverage:
+                raise ValueError(
+                    "rescue_minimum_coverage must be greater than 0 and no higher "
+                    "than minimum_coverage"
+                )
+            if isinstance(self.rescue_max_missing_ingredients, bool) or not isinstance(
+                self.rescue_max_missing_ingredients, int
+            ):
+                raise TypeError("rescue_max_missing_ingredients must be an integer")
+            if self.rescue_max_missing_ingredients < self.max_missing_ingredients:
+                raise ValueError(
+                    "rescue_max_missing_ingredients must be at least "
+                    "max_missing_ingredients"
+                )
 
     @classmethod
     def from_yaml(cls, path: str | Path = DEFAULT_CONFIG_PATH) -> RetrievalPolicy:
@@ -66,6 +93,10 @@ class RetrievalPolicy:
             minimum_coverage=retrieval.get("minimum_coverage", cls.minimum_coverage),
             max_missing_ingredients=retrieval.get(
                 "max_missing_ingredients", cls.max_missing_ingredients
+            ),
+            rescue_minimum_coverage=retrieval.get("rescue_minimum_coverage"),
+            rescue_max_missing_ingredients=retrieval.get(
+                "rescue_max_missing_ingredients"
             ),
         )
 
@@ -146,24 +177,121 @@ class _RankedRecipe:
         )
 
 
-def _canonical_term(value: str, aliases: Mapping[str, str]) -> str:
-    normalized = normalize_token(value)
-    exact_match = aliases.get(normalized)
-    if exact_match is not None:
-        return exact_match
+@dataclass(frozen=True)
+class _PreparedRecipe:
+    """Corpus record with query-independent text work completed once."""
 
-    # Source data often adds preparation words around a reviewed alias, such
-    # as "diced tomatoes". Replace only complete words/phrases so aliases can
-    # still canonicalize that ingredient without making egg match eggplant.
-    for source, target in sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True):
-        normalized = re.sub(rf"(?<!\w){re.escape(source)}(?!\w)", target, normalized)
-    return normalized
+    record: RecipeRecord
+    source_ingredients: tuple[str, ...]
+    canonical_ingredients: tuple[str, ...]
+    non_pantry_ingredients: tuple[str, ...]
+
+
+class _AliasCanonicalizer:
+    """Canonicalize one term with one compiled alias expression and a value cache."""
+
+    def __init__(self, alias_items: tuple[tuple[str, str], ...]) -> None:
+        self.aliases = dict(alias_items)
+        sources = sorted(self.aliases, key=len, reverse=True)
+        self.pattern = (
+            re.compile(
+                rf"(?<!\w)(?:{'|'.join(re.escape(source) for source in sources)})(?!\w)"
+            )
+            if sources
+            else None
+        )
+        self.cache: dict[str, str] = {}
+
+    def canonicalize(self, value: str) -> str:
+        normalized = normalize_token(value)
+        cached = self.cache.get(normalized)
+        if cached is not None:
+            return cached
+
+        exact_match = self.aliases.get(normalized)
+        if exact_match is not None:
+            canonical = exact_match
+        elif self.pattern is None:
+            canonical = normalized
+        else:
+            canonical = self.pattern.sub(
+                lambda match: self.aliases[match.group(0)],
+                normalized,
+            )
+        self.cache[normalized] = canonical
+        return canonical
+
+
+def _normalized_alias_items(aliases: Mapping[str, str]) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        sorted(
+            (normalize_token(str(source)), normalize_token(str(target)))
+            for source, target in aliases.items()
+        )
+    )
+
+
+@lru_cache(maxsize=32)
+def _cached_canonicalizer(
+    alias_items: tuple[tuple[str, str], ...],
+) -> _AliasCanonicalizer:
+    return _AliasCanonicalizer(alias_items)
+
+
+def _canonical_term(value: str, aliases: Mapping[str, str]) -> str:
+    return _cached_canonicalizer(_normalized_alias_items(aliases)).canonicalize(value)
+
+
+def _is_word_character(value: str) -> bool:
+    r"""Mirror the ``\w`` boundary used by the previous regular expressions."""
+
+    return value == "_" or value.isalnum()
+
+
+def _contains_normalized_phrase(text: str, phrase: str) -> bool:
+    """Find a normalized phrase on complete-word boundaries without compiling regexes."""
+
+    if not phrase:
+        return False
+
+    start = 0
+    while True:
+        position = text.find(phrase, start)
+        if position < 0:
+            return False
+        end = position + len(phrase)
+        left_is_clear = position == 0 or not _is_word_character(text[position - 1])
+        right_is_clear = end == len(text) or not _is_word_character(text[end])
+        if left_is_clear and right_is_clear:
+            return True
+        start = position + 1
+
+
+def _normalized_terms_are_non_equivalent(first: str, second: str) -> bool:
+    for general, products in NON_EQUIVALENT_INGREDIENT_PRODUCTS.items():
+        if first == general and any(
+            _contains_normalized_phrase(second, product) for product in products
+        ):
+            return True
+        if second == general and any(
+            _contains_normalized_phrase(first, product) for product in products
+        ):
+            return True
+    return False
+
+
+def _normalized_terms_overlap(first: str, second: str) -> bool:
+    if _normalized_terms_are_non_equivalent(first, second):
+        return False
+    return _contains_normalized_phrase(first, second) or _contains_normalized_phrase(
+        second, first
+    )
 
 
 def _terms_overlap(first: str, second: str) -> bool:
     """Allow reviewed canonical terms to match a more specific ingredient phrase."""
 
-    return ingredient_terms_overlap(first, second)
+    return _normalized_terms_overlap(normalize_token(first), normalize_token(second))
 
 
 @dataclass(frozen=True)
@@ -179,44 +307,60 @@ class IngredientMatchDetails:
     missing_recipe_ingredients: tuple[str, ...]
 
 
-def ingredient_match_details(
-    recipe: RecipeRecord,
-    available_ingredients: Sequence[str],
-    pantry_staples: Sequence[str] = (),
-    aliases: Mapping[str, str] | None = None,
+def _match_details_from_canonical_terms(
+    required: Sequence[str],
+    available: Sequence[str],
+    pantry: Sequence[str],
 ) -> IngredientMatchDetails:
-    """Return both recipe-side coverage and user-input utilization details."""
-
-    normalized_aliases = aliases or {}
-    available = list(
-        dict.fromkeys(_canonical_term(item, normalized_aliases) for item in available_ingredients)
-    )
-    pantry = [_canonical_term(item, normalized_aliases) for item in pantry_staples]
-    required = [_canonical_term(item, normalized_aliases) for item in recipe.ingredients_normalized]
     non_pantry = [
         ingredient
         for ingredient in required
-        if not any(_terms_overlap(ingredient, staple) for staple in pantry)
+        if not any(_normalized_terms_overlap(ingredient, staple) for staple in pantry)
     ]
-
     target_inputs = [
         available_item
         for available_item in available
-        if not any(_terms_overlap(available_item, staple) for staple in pantry)
-    ] or available
+        if not any(_normalized_terms_overlap(available_item, staple) for staple in pantry)
+    ] or list(available)
+
+    return _match_details_for_non_pantry(non_pantry, available, target_inputs)
+
+
+def _match_details_for_non_pantry(
+    non_pantry: Sequence[str],
+    available: Sequence[str],
+    target_inputs: Sequence[str],
+) -> IngredientMatchDetails:
+    """Compute request-specific metrics for an already prepared ingredient list."""
+
+    match_matrix = [
+        [
+            _normalized_terms_overlap(ingredient, available_item)
+            for available_item in available
+        ]
+        for ingredient in non_pantry
+    ]
+    recipe_matches = [any(matches) for matches in match_matrix]
+    input_matches = [
+        any(matches[input_index] for matches in match_matrix)
+        for input_index in range(len(available))
+    ]
+    available_match_map = dict(zip(available, input_matches, strict=True))
     matched_inputs = tuple(
         available_item
         for available_item in target_inputs
-        if any(_terms_overlap(available_item, ingredient) for ingredient in non_pantry)
+        if available_match_map[available_item]
     )
     unmatched_inputs = tuple(
-        available_item for available_item in target_inputs if available_item not in matched_inputs
+        available_item
+        for available_item in target_inputs
+        if not available_match_map[available_item]
     )
     missing_recipe_ingredients = tuple(
         dict.fromkeys(
             ingredient
-            for ingredient in non_pantry
-            if not any(_terms_overlap(ingredient, available_item) for available_item in available)
+            for ingredient, matched in zip(non_pantry, recipe_matches, strict=True)
+            if not matched
         )
     )
 
@@ -224,10 +368,7 @@ def ingredient_match_details(
         recipe_coverage = 1.0
         missing_count = 0
     else:
-        matched_recipe_count = len(non_pantry) - sum(
-            not any(_terms_overlap(ingredient, available_item) for available_item in available)
-            for ingredient in non_pantry
-        )
+        matched_recipe_count = sum(recipe_matches)
         recipe_coverage = matched_recipe_count / len(non_pantry)
         missing_count = len(non_pantry) - matched_recipe_count
     input_utilization = len(matched_inputs) / len(target_inputs) if target_inputs else 0.0
@@ -239,6 +380,29 @@ def ingredient_match_details(
         matched_inputs=matched_inputs,
         unmatched_inputs=unmatched_inputs,
         missing_recipe_ingredients=missing_recipe_ingredients,
+    )
+
+
+def ingredient_match_details(
+    recipe: RecipeRecord,
+    available_ingredients: Sequence[str],
+    pantry_staples: Sequence[str] = (),
+    aliases: Mapping[str, str] | None = None,
+) -> IngredientMatchDetails:
+    """Return both recipe-side coverage and user-input utilization details."""
+
+    canonicalizer = _cached_canonicalizer(_normalized_alias_items(aliases or {}))
+    available = list(
+        dict.fromkeys(canonicalizer.canonicalize(item) for item in available_ingredients)
+    )
+    pantry = [canonicalizer.canonicalize(item) for item in pantry_staples]
+    required = [
+        canonicalizer.canonicalize(item) for item in recipe.ingredients_normalized
+    ]
+    return _match_details_from_canonical_terms(
+        required,
+        available,
+        pantry,
     )
 
 
@@ -293,14 +457,19 @@ class DeterministicRecipeRetriever:
         self.repository = repository
         self.rules = rules or RetrievalRules()
         self.policy = policy or RetrievalPolicy()
-        self._ingredient_aliases = {
-            normalize_token(str(key)): normalize_token(str(value))
-            for key, value in (self.rules.ingredient_aliases or {}).items()
-        }
+        alias_items = _normalized_alias_items(self.rules.ingredient_aliases or {})
+        self._ingredient_aliases = dict(alias_items)
+        self._canonicalizer = _cached_canonicalizer(alias_items)
+        self._pantry_staples = tuple(
+            self._canonicalizer.canonicalize(item) for item in self.rules.pantry_staples
+        )
         self._allergen_aliases = {
             normalize_token(str(key)): [normalize_token(alias) for alias in aliases]
             for key, aliases in (self.rules.allergen_aliases or {}).items()
         }
+        self._prepared_recipes = tuple(
+            self._prepare_recipe(recipe) for recipe in self.repository.list_all()
+        )
 
     @classmethod
     def from_local_corpus(
@@ -323,7 +492,58 @@ class DeterministicRecipeRetriever:
             policy=RetrievalPolicy.from_yaml(config_path),
         )
 
-    def _meets_hard_constraints(self, request: UserRequest, recipe: RecipeRecord) -> bool:
+    def _prepare_recipe(self, recipe: RecipeRecord) -> _PreparedRecipe:
+        source_ingredients = tuple(
+            normalize_token(ingredient) for ingredient in recipe.ingredients_normalized
+        )
+        canonical_ingredients = tuple(
+            self._canonicalizer.canonicalize(ingredient) for ingredient in source_ingredients
+        )
+        non_pantry_ingredients = tuple(
+            ingredient
+            for ingredient in canonical_ingredients
+            if not any(
+                _normalized_terms_overlap(ingredient, staple)
+                for staple in self._pantry_staples
+            )
+        )
+        return _PreparedRecipe(
+            record=recipe,
+            source_ingredients=source_ingredients,
+            canonical_ingredients=canonical_ingredients,
+            non_pantry_ingredients=non_pantry_ingredients,
+        )
+
+    def _has_excluded_match(
+        self,
+        recipe: _PreparedRecipe,
+        excluded_ingredients: Sequence[str],
+    ) -> bool:
+        for exclusion in excluded_ingredients:
+            source_key = normalize_token(exclusion)
+            key = self._canonicalizer.canonicalize(source_key)
+            allergen_terms = [
+                *self._allergen_aliases.get(source_key, []),
+                *self._allergen_aliases.get(key, []),
+            ]
+            terms = {
+                key,
+                *(self._canonicalizer.canonicalize(term) for term in allergen_terms),
+            }
+            if any(
+                _contains_normalized_phrase(ingredient, term)
+                for ingredient in recipe.canonical_ingredients
+                for term in terms
+            ):
+                return True
+        return False
+
+    def _meets_hard_constraints(
+        self,
+        request: UserRequest,
+        prepared: _PreparedRecipe,
+    ) -> bool:
+        recipe = prepared.record
         if request.max_time_minutes is not None:
             if recipe.total_time_minutes is None:
                 return False
@@ -333,10 +553,9 @@ class DeterministicRecipeRetriever:
         if recipe.equipment_tags_inferred & request.unavailable_equipment:
             return False
 
-        if find_excluded_matches(
-            recipe.ingredients_normalized,
+        if self._has_excluded_match(
+            prepared,
             request.excluded_ingredients,
-            self._allergen_aliases,
         ):
             return False
 
@@ -350,33 +569,63 @@ class DeterministicRecipeRetriever:
         if limit < 1:
             raise ValueError("limit must be at least 1")
 
+        available = list(
+            dict.fromkeys(
+                self._canonicalizer.canonicalize(item)
+                for item in request.available_ingredients
+            )
+        )
+        target_inputs = [
+            available_item
+            for available_item in available
+            if not any(
+                _normalized_terms_overlap(available_item, staple)
+                for staple in self._pantry_staples
+            )
+        ] or available
         ranked: list[_RankedRecipe] = []
-        for recipe in self.repository.list_all():
-            if not self._meets_hard_constraints(request, recipe):
+        rescue_ranked: list[_RankedRecipe] = []
+        for prepared in self._prepared_recipes:
+            recipe = prepared.record
+            if not self._meets_hard_constraints(request, prepared):
                 continue
-            coverage, missing_count, input_utilization, matched_input_count = _ingredient_metrics(
-                recipe,
-                request.available_ingredients,
-                self.rules.pantry_staples,
-                self._ingredient_aliases,
+            match = _match_details_for_non_pantry(
+                prepared.non_pantry_ingredients,
+                available,
+                target_inputs,
             )
-            if coverage < self.policy.minimum_coverage:
-                continue
-            if missing_count > self.policy.max_missing_ingredients:
-                continue
+            coverage = match.recipe_coverage
+            missing_count = match.missing_count
+            input_utilization = match.input_utilization
+            matched_input_count = match.matched_input_count
             quality, rating, review_count = _quality_metrics(recipe)
-            ranked.append(
-                _RankedRecipe(
-                    recipe_id=recipe.recipe_id,
-                    input_utilization=input_utilization,
-                    matched_input_count=matched_input_count,
-                    coverage=coverage,
-                    missing_count=missing_count,
-                    quality=quality,
-                    rating=rating,
-                    review_count=review_count,
-                )
+            ranked_recipe = _RankedRecipe(
+                recipe_id=recipe.recipe_id,
+                input_utilization=input_utilization,
+                matched_input_count=matched_input_count,
+                coverage=coverage,
+                missing_count=missing_count,
+                quality=quality,
+                rating=rating,
+                review_count=review_count,
             )
+            if (
+                coverage >= self.policy.minimum_coverage
+                and missing_count <= self.policy.max_missing_ingredients
+            ):
+                ranked.append(ranked_recipe)
+                continue
+            if (
+                self.policy.rescue_minimum_coverage is not None
+                and self.policy.rescue_max_missing_ingredients is not None
+                and input_utilization == 1.0
+                and coverage >= self.policy.rescue_minimum_coverage
+                and missing_count <= self.policy.rescue_max_missing_ingredients
+            ):
+                rescue_ranked.append(ranked_recipe)
+
+        if not any(item.input_utilization == 1.0 for item in ranked):
+            ranked.extend(rescue_ranked)
 
         ranked.sort(key=lambda item: item.sort_key)
         return [item.recipe_id for item in ranked[:limit]]

@@ -22,9 +22,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5.4-mini"
     openai_base_url: str | None = None
-    kaggle_dataset_handle: str = "irkaal/foodcom-recipes-and-reviews"
-    kaggle_dataset_version: int = 2
-    kaggle_dataset_file: str = "recipes.parquet"
+    source_dataset_file: str = "epicurious_recipes.csv"
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -64,7 +62,7 @@ class Settings(BaseSettings):
 
     @property
     def raw_recipe_path(self) -> Path:
-        return PROJECT_ROOT / "data" / "raw" / self.kaggle_dataset_file
+        return PROJECT_ROOT / "data" / "raw" / self.source_dataset_file
 
     @property
     def active_provider(self) -> Literal["deepseek", "openai"]:

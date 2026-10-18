@@ -4,12 +4,30 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.pytest_tmp*/
+.pytest-tmp*/
 .ruff_cache/
 .streamlit/secrets.toml
+.pipeline_*/
+.tmp_*
 .DS_Store
 Thumbs.db
-data/raw/
-data/curated/manifest.csv
-data/curated/qa_sample.csv
-data/curated/DATA_CARD.md
-data/curated/curation_summary.json
+
+# The 26.6 MB pinned source is reproducible and is downloaded on demand.
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/source_metadata.json
+!data/raw/source_schema.json
+
+data/index/*
+!data/index/.gitkeep
+
+# Publish only the three release-evidence directories, not every local trial.
+evaluation/results/*
+!evaluation/results/README.md
+!evaluation/results/v31_policy_scan_two_tier_20261018/
+!evaluation/results/v31_policy_scan_two_tier_20261018/**
+!evaluation/results/dev_v31_two_tier_live_20261018/
+!evaluation/results/dev_v31_two_tier_live_20261018/**
+!evaluation/results/formal_v31_final2_20261018/
+!evaluation/results/formal_v31_final2_20261018/**

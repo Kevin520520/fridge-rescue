@@ -1,221 +1,180 @@
 # Fridge Rescue
 
-Fridge Rescue is a bilingual Agentic AI recipe recommender. It searches a curated local
-collection of 2,000 Food.com recipes and can optionally use DeepSeek or OpenAI to select
-and validate recommendations.
+Fridge Rescue is a bilingual recipe recommender built for the HD6012 Agentic AI
+group assignment. Users enter ingredients already at home and optional ingredients
+to avoid. The application can search a curated local corpus, ask an AI model to
+select grounded recipes, validate the result, and display the original quantities
+and instructions from the dataset.
 
-> The processed 2,000-recipe corpus is already included. Normal users do not need to
-> download or process the Kaggle source again. An API key is also optional because the
-> local retrieval mode works offline.
+- GitHub: https://github.com/Kevin520520/fridge-rescue
+- Live app: https://fridge-rescue-ai.streamlit.app/
 
-## 在线部署给组员体验（Streamlit Community Cloud）
+## 三种使用模式
 
-部署完成后，组员只需打开生成的 `*.streamlit.app` 链接，不需要安装Python或下载代码。
+- **Agentic AI workflow / 智能推荐**：本地检索 2,000 条菜谱，AI 只从候选
+  `recipe_id` 中选择，程序检查 ID、食材覆盖和限制条件；失败时最多修复一次。
+- **Single-prompt AI / 单次 AI**：同一个 DeepSeek 模型只接收一次用户提示，不使用
+  本地语料、检索、验证或修复；这是课程实验的 baseline。
+- **Local retrieval / 本地检索**：只运行本地确定性检索，不调用外部 AI，也不消耗
+  API 额度。
 
-1. 登录 [Streamlit Community Cloud](https://share.streamlit.io/) 并点击 **Create app**。
-2. 选择以下配置：
-   - Repository：`Kevin520520/fridge-rescue`
-   - Branch：`main`
-   - Main file path：`app.py`
-3. 打开 **Advanced settings**，Python选择 `3.13`。
-4. 如需体验Agentic和Single-prompt模式，在 **Secrets** 中填写：
+Agentic 和 Single-prompt 使用同一个 provider 和 model，因此比较的是“本地语料 +
+检索 + 编排 + 验证”带来的差异，而不是两个不同大模型之间的差异。
 
-   ```toml
-   LLM_PROVIDER = "deepseek"
-   DEEPSEEK_API_KEY = "替换为自己的DeepSeek API Key"
-   DEEPSEEK_MODEL = "deepseek-flash"
-   DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-   ```
+## 当前数据版本：Corpus v3.1
 
-5. 点击 **Deploy**，等待构建完成后，将应用链接发给组员。
+旧的 Food.com 语料已被替换。当前数据来自固定版本的
+[Epicurious Recipes (13k)](https://github.com/josephrmartinez/recipe-dataset)：
 
-不要把真实API Key写进仓库、`.env.example`、README、聊天或截图。公开应用的所有AI
-请求都会消耗部署者的API额度；只供小组使用时，建议使用私有分享，或在演示结束后移除
-Secret。没有配置API Key时，云端应用仍可使用本地检索模式。
+- 固定源文件：13,501 条，26,595,455 bytes；
+- 源文件 SHA-256：
+  `d0e3977da7c1dc287ed75d6770f4064a7caeaa20ef6f64708b730e02f4d5f17a`；
+- 通过确定性清洗的完整记录：7,578 条；
+- 固定随机种子分层抽样后的发布语料：2,000 条；
+- 最终语料包含 20,997 条食材行，删除或隐藏的食材行：0；
+- 每条菜谱至少 3 条食材、2 个步骤，计量覆盖率最低 60%，平均 93.47%；
+- 数量与单位只保留源数据内容，不由代码或 AI 猜测；
+- 仅修复 16 条菜谱中的 18 处明确连写空格，例如 `11/2 cups` →
+  `1 1/2 cups`，数值本身不变；
+- 全量审计结果：0 个 hard failure，0 个 review warning；
+- 最终 Parquet SHA-256：
+  `1fbeeaa09544940884e64dc94a9b3666658a5956790c7f36487f26892371e690`。
 
-## 中文 Windows 快速开始（推荐）
+如果一条源菜谱含有确认的损坏数量、损坏单位、非食材内容、未展开的子菜谱引用
+或结构不完整内容，清洗程序会淘汰整条菜谱，而不是隐藏错误行后继续保留菜谱。
+详细证据位于 `data/curated/CURATION_AUDIT_TRAIL.md`、
+`data/curated/curation_summary.json` 和 `data/curated/audits/v31_20261018/`。
 
-### 1. 下载并解压项目
+源数据是社区发布内容。上述检查可以保证结构、来源和计量规则一致，但不能证明
+每一道菜都已经在厨房中实际测试过；项目不会作出这种过度声明。
 
-最简单的方法：
+## 核心架构
 
-1. 点击GitHub页面右上方的 **Code**。
-2. 选择 **Download ZIP**。
-3. 下载完成后右键ZIP文件，选择**全部解压**。不要直接在压缩包中运行。
-4. 打开VS Code，选择 **File → Open Folder**，打开解压后的 `fridge-rescue-main`
-   文件夹。正确的文件夹中应该能看到 `app.py` 和 `pyproject.toml`。
-5. 在VS Code中选择 **Terminal → New Terminal**。
+```text
+用户输入
+  → 中英文别名归一化与输入检查
+  → 本地 2,000 条语料的确定性检索与排序
+  → DeepSeek 从 Top-10 候选 ID 中选择（Agentic 模式）
+  → 程序检查 ID、限制条件和输入食材利用率
+  → 必要时最多修复一次
+  → 根据 ID 从本地语料加载原始标题、数量、单位和步骤
+```
 
-如果已经安装Git，也可以在PowerShell中运行：
+默认检索先使用 `coverage >= 0.20`、额外食材不超过 7 的主门槛；只有主候选中
+没有完整命中用户全部食材的菜谱时，才允许完整命中的救援候选使用
+`coverage >= 0.15`、额外食材不超过 8。这个两级策略提升了完整食材命中率，
+同时避免把大量低相关部分命中结果全部放宽进入候选池。
+
+主界面只保留“可用食材”和“需要避开的食材”。源数据没有可靠时间字段，饮食标签
+覆盖也过于保守，因此时间、设备和 vegan/vegetarian 没有作为当前 UI 的可靠筛选
+卖点。应用也不提供医疗级过敏原或营养保证。
+
+## 正式 Agentic vs Single-prompt 实验
+
+冻结的 20 条正式案例分别运行两种模式，每种模式重复 3 次，共 120 次尝试：
+
+| 指标 | Single-prompt | Agentic |
+|---|---:|---:|
+| 尝试次数 | 60 | 60 |
+| API/输出错误 | 2 | 1 |
+| 成功率（共同口径） | 96.7% | 93.3% |
+| 已返回结果的硬约束通过率 | 100% | 100% |
+| 适用案例的全部输入食材命中率 | 94.7% | 81.5% |
+| 平均延迟 | 3814.6 ms | 1335.8 ms |
+| Agentic 返回 ID 有效率 | 不适用 | 100% |
+
+结果不支持“Agentic 在所有指标上都优于 Single-prompt”的说法。Single-prompt
+更容易自由生成并使用全部输入食材；Agentic 的优势是结果可追溯到本地语料、返回
+内容受验证、硬约束稳定，而且本轮平均延迟更低。Agentic 的主要不足来自语料覆盖：
+真实世界有菜可做，不代表固定 2,000 条语料一定包含对应菜谱。
+
+正式证据位于 `evaluation/results/formal_v31_final2_20261018/`。其中两次 baseline
+错误是 provider/output 请求失败；一次 Agentic 错误是模型在一次修复后仍输出未获
+允许的替换建议，系统选择安全失败而没有展示该内容。正式集冻结后不再据此继续调参，
+避免在最终测试集上过拟合。
+
+## Windows 本地运行（组员推荐步骤）
+
+先安装 Python 3.11、3.12 或 3.13，然后在 PowerShell 中执行：
 
 ```powershell
 git clone https://github.com/Kevin520520/fridge-rescue.git
 cd fridge-rescue
-```
-
-### 2. 检查Python
-
-在VS Code终端中运行：
-
-```powershell
-py --version
-py -0p
-```
-
-项目支持Python 3.11、3.12和3.13。如果显示“无法识别 `py`”，请先从
-[python.org/downloads](https://www.python.org/downloads/) 安装上述版本之一，安装时勾选
-**Add python.exe to PATH**，
-然后完全关闭并重新打开VS Code。
-
-### 3. 安装并启动应用
-
-下面四条命令需要逐条运行：
-
-```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe scripts\check_setup.py
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-如果电脑安装的是Python 3.12或3.11，把第一条命令中的 `-3.13` 分别改成
-`-3.12` 或 `-3.11`，其余命令不变。
+如果电脑使用 Python 3.12 或 3.11，只需把第一条 Python 命令中的 `-3.13`
+改成对应版本。第一次启动 Streamlit 时可以把 `Email:` 留空并按 Enter。
+浏览器通常会打开 `http://localhost:8501`。
 
-第一次启动Streamlit时，终端可能询问 `Email:`。可以直接留空并按Enter。
-随后打开终端显示的 **Local URL**，通常是 `http://localhost:8501`。如果显示其他
-端口，以终端实际地址为准。运行期间不要关闭终端。
+没有 API key 时仍可使用 **Local retrieval**。快速测试可输入：
 
-### 4. 用30秒确认部署成功
+```text
+egg, tomato
+```
 
-没有配置API Key时，页面只显示 **Local retrieval · 本地检索**，这是正常现象。
+或：
 
-1. 在“可用食材”中输入 `egg, tomato, cooked rice`，或输入 `鸡蛋，番茄，米饭`。
-2. 点击 **Find recipes**。
-3. 页面能够显示菜谱标题、食材和步骤，即表示本地部署成功。
-4. 回到终端按 `Ctrl+C` 可以关闭应用。
+```text
+鸡蛋，番茄
+```
 
-### 5. 可选：开启Agentic和Single-prompt模式
-
-离线模式不需要API Key。只有需要体验AI模式时才执行：
+要启用两种 AI 模式：
 
 ```powershell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-把 `.env` 中的 `replace_with_your_own_key` 替换为自己的DeepSeek API Key，保存并
-关闭记事本。回到终端按 `Ctrl+C` 停止应用，然后重新运行：
+把 `.env` 中的占位符换成自己的 DeepSeek API key，保存后重启 Streamlit。
+真实 key 不得提交到 GitHub、README、截图或聊天中。
+
+## 重新生成 2,000 条数据
+
+普通使用者不需要重跑数据流程，因为处理好的 Parquet 已包含在仓库中。需要复现
+数据准备时执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-重新打开页面后，应当可以选择 **Smart recommendation · 智能推荐**、
-**Single-prompt AI · 单次 AI** 和 **Local retrieval · 本地检索**。不要把 `.env`
-上传到GitHub，也不要在聊天或截图中分享API Key。
-
-### 常见问题
-
-- **提示无法识别 `py`：** Python尚未安装或没有加入PATH；安装后重新打开VS Code。
-- **提示找不到 `app.py` 或 `pyproject.toml`：** 当前终端不在项目根目录；应进入同时
-  包含这两个文件的文件夹。
-- **只显示本地检索模式：** 这是没有有效API Key时的正常表现；离线功能仍可使用。
-- **网页没有自动打开：** 手动打开终端显示的Local URL。
-- **8501端口被占用：** Streamlit通常会显示另一个可用端口，请使用终端实际地址。
-- **关闭终端后网页失效：** 应用依赖本地终端进程，需要重新运行最后一条启动命令。
-
-## English quick start
-
-Python 3.11, 3.12, or 3.13 is required. Clone the public repository and run the following
-commands from the project root:
-
-### Windows PowerShell
-
-```powershell
-git clone https://github.com/Kevin520520/fridge-rescue.git
-cd fridge-rescue
-py -3.13 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e .
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-Use `-3.12` or `-3.11` in the first command when appropriate.
-
-### macOS or Linux
-
-```bash
-git clone https://github.com/Kevin520520/fridge-rescue.git
-cd fridge-rescue
-python3 -m venv .venv
-./.venv/bin/python -m pip install --upgrade pip
-./.venv/bin/python -m pip install -e .
-./.venv/bin/python -m streamlit run app.py
-```
-
-Without an API key, the application automatically offers the offline retrieval mode.
-To enable live AI modes, copy `.env.example` to `.env`, add a personal DeepSeek or OpenAI
-key, and restart Streamlit.
-
-## Application modes
-
-- **Local retrieval:** searches the included corpus without an external model or API cost.
-- **Agentic AI workflow:** retrieves candidates, lets the model select recipe IDs, validates
-  the output, and performs at most one repair.
-- **Single-prompt comparison:** calls the same configured model without the local corpus or
-  Agentic workflow.
-
-Agentic and single-prompt modes use the same configured provider and model. This keeps the
-course comparison focused on the value of retrieval and orchestration.
-
-## Optional: rebuild the 2,000-recipe corpus
-
-This section reproduces the data preparation process and is not required for normal use.
-It downloads the fixed Food.com v2 source, which is approximately 170 MB, and regenerates
-`data/curated/recipes_2000.parquet`. No LLM API key is required, but allow at least 1 GB of
-free disk space for the download, cache, and generated files.
-
-Stop Streamlit first, then run on Windows:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[data]"
 .\.venv\Scripts\python.exe scripts\download_source.py
 .\.venv\Scripts\python.exe scripts\inspect_source.py
 .\.venv\Scripts\python.exe scripts\curate_corpus.py
+.\.venv\Scripts\python.exe scripts\audit_curated_corpus.py
+.\.venv\Scripts\python.exe scripts\check_setup.py --check-rebuild
 ```
 
-On macOS or Linux, use `./.venv/bin/python` in place of
-`.\.venv\Scripts\python.exe`.
+这些脚本会下载固定 commit 的 26.6 MB CSV、验证文件哈希、检查源结构、淘汰整条
+损坏记录、去重、分层抽样、生成 2,000 条语料并再次全量审计。数据流程不需要
+LLM API key。
 
-The scripts use a fixed Kaggle dataset version and random seed. They download and verify
-the source, inspect its schema, clean and deduplicate valid records, apply deterministic
-stratified sampling, and generate the final 2,000-recipe corpus. They also write a source
-schema, manifest, QA sample, data card, and curation summary.
-
-`curate_corpus.py` replaces the included `recipes_2000.parquet`. Restart the application
-after the rebuild finishes.
-
-## Repository structure
+## 主要文件
 
 ```text
-app.py                         Streamlit user interface
-src/fridge_rescue/             retrieval, model calls, validation, and workflow
-src/fridge_rescue/data_pipeline.py
-                               reusable parsing, cleaning, and validation functions
-scripts/download_source.py     download and verify the fixed Kaggle source
-scripts/inspect_source.py      inspect source structure and data quality
-scripts/curate_corpus.py       clean, deduplicate, sample, and write 2,000 recipes
-data/curated/recipes_2000.parquet
-                               processed local corpus used directly by the application
-config.yaml                    retrieval thresholds and fixed corpus settings
-rules.yaml                     ingredient aliases and deterministic curation rules
-prompts.yaml                   model roles and repair prompts
-.streamlit/config.toml         interface theme
-.env.example                   safe configuration template without secrets
+app.py                              Streamlit 界面与三种运行模式
+src/fridge_rescue/workflow.py       LangGraph Agentic 工作流
+src/fridge_rescue/retrieval.py      确定性检索、排序和两级门槛
+src/fridge_rescue/openai_selector.py DeepSeek/OpenAI 结构化选择
+src/fridge_rescue/evaluation.py     双模式评估指标
+src/fridge_rescue/epicurious_pipeline.py
+                                    当前 Epicurious 数据清洗规则
+scripts/download_source.py          下载并校验固定源文件
+scripts/inspect_source.py           检查源数据结构和质量
+scripts/curate_corpus.py            清洗、去重、分层抽样和生成发布文件
+scripts/audit_curated_corpus.py      对最终 2,000 条进行全量审计
+scripts/check_setup.py               验证依赖、文件数量、哈希和可复现性
+data/curated/recipes_2000.parquet   App 直接使用的新数据集
+rules.yaml                          中英文别名、清洗和安全规则
+config.yaml                         检索门槛和实验数量
+prompts.yaml                        Agent 角色与修复提示词
 ```
 
-## Data source
+## Source and license
 
-The curated corpus is derived from the Food.com Recipes and Reviews dataset on Kaggle,
-version 2 (`irkaal/foodcom-recipes-and-reviews`). The source dataset is CC0 1.0 Public
-Domain. The raw source is intentionally not stored in this repository.
+The current corpus is derived from
+[Epicurious Recipes (13k)](https://github.com/josephrmartinez/recipe-dataset) at
+revision `c5a1e8dab69d46841d914be1f20cca6fbe4b6260`. The pinned source and the
+derived corpus are distributed under CC BY-SA 3.0. The raw CSV is not committed;
+the downloader retrieves and verifies the exact pinned file.

@@ -6,7 +6,7 @@ generate_answer:
     Prefer recipes with the highest input_utilization so the user's available
     ingredients are actually used. At least one selection must have the highest
     input_utilization among the feasible candidates. Among equally good matches,
-    prefer fewer missing_non_pantry_ingredients, then stronger ratings and reviews.
+    prefer fewer missing_non_pantry_ingredients.
     Return concise reasons and only substitutions explicitly supplied by the rule tool.
     Never invent recipe names, ingredients, times, instructions, IDs, or safety claims.
 

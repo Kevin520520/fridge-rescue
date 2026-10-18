@@ -96,10 +96,8 @@ class RecipeRecord(BaseModel):
 
     recipe_id: str
     title: str
-    ingredients_original: list[str]
-    ingredient_quantities_original: list[str | None] = Field(default_factory=list)
-    quantity_alignment_status: Literal["aligned", "unreliable"] = "unreliable"
-    ingredients_normalized: list[str]
+    ingredient_lines_original: list[str] = Field(min_length=1)
+    ingredients_normalized: list[str] = Field(min_length=1)
     instructions_original: list[str]
     total_time_minutes: int | None = Field(default=None, ge=0)
     rating: float | None = Field(default=None, ge=0, le=5)
@@ -108,6 +106,18 @@ class RecipeRecord(BaseModel):
     vegetarian_status: Literal["match", "conflict", "unknown"] = "unknown"
     vegan_status: Literal["match", "conflict", "unknown"] = "unknown"
     source_record_id: str
+
+    @model_validator(mode="after")
+    def ingredient_lines_must_be_parallel(self) -> RecipeRecord:
+        if any(not line.strip() for line in self.ingredient_lines_original):
+            raise ValueError("ingredient_lines_original must not contain blanks")
+        if any(not line.strip() for line in self.ingredients_normalized):
+            raise ValueError("ingredients_normalized must not contain blanks")
+        if len(self.ingredient_lines_original) != len(self.ingredients_normalized):
+            raise ValueError(
+                "ingredient_lines_original and ingredients_normalized must have equal lengths"
+            )
+        return self
 
 
 class SelectedRecipe(BaseModel):

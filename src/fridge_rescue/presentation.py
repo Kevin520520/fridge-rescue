@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+
 from fridge_rescue.schemas import RecipeRecord
 
 
@@ -18,35 +20,18 @@ def ai_privacy_notice(provider_label: str, *, uses_external_ai: bool) -> str | N
     )
 
 
-def ingredient_display_lines(recipe: RecipeRecord) -> tuple[list[str], bool]:
-    """Return safe ingredient text and whether source quantities were used.
+def ingredient_display_lines(recipe: RecipeRecord) -> list[str]:
+    """Return the authoritative full ingredient lines from the source row."""
 
-    Food.com stores ingredient names and quantities as separate arrays.  A
-    quantity is paired with a name only when curation explicitly marked the
-    arrays as aligned *and* their current lengths still agree.  This second
-    check prevents a malformed record from silently displaying a quantity
-    beside the wrong ingredient.
-    """
+    return list(recipe.ingredient_lines_original)
 
-    quantities_are_aligned = (
-        recipe.quantity_alignment_status == "aligned"
-        and len(recipe.ingredient_quantities_original) == len(recipe.ingredients_original)
-        and all(
-            isinstance(quantity, str) and bool(quantity.strip())
-            for quantity in recipe.ingredient_quantities_original
-        )
-    )
-    if not quantities_are_aligned:
-        return list(recipe.ingredients_original), False
 
+def authoritative_source_line_html(text: str, *, prefix: str) -> str:
+    """Render a source line without browser translation changing measurements."""
+
+    safe_prefix = html.escape(prefix, quote=True)
+    safe_text = html.escape(text, quote=True)
     return (
-        [
-            f"{quantity} {ingredient}".strip()
-            for quantity, ingredient in zip(
-                recipe.ingredient_quantities_original,
-                recipe.ingredients_original,
-                strict=True,
-            )
-        ],
-        True,
+        '<div class="fr-source-line" translate="no" lang="en">'
+        f"{safe_prefix} {safe_text}</div>"
     )

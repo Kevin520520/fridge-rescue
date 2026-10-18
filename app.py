@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -21,14 +21,18 @@ from fridge_rescue.input_normalization import (
     parse_ingredient_text,
 )
 from fridge_rescue.openai_selector import ResponsesRecommendationSelector
-from fridge_rescue.presentation import ai_privacy_notice, ingredient_display_lines
+from fridge_rescue.presentation import (
+    ai_privacy_notice,
+    authoritative_source_line_html,
+    ingredient_display_lines,
+)
 from fridge_rescue.repository import DEFAULT_CURATED_CORPUS_PATH, ParquetRecipeRepository
 from fridge_rescue.retrieval import (
     DeterministicRecipeRetriever,
     RetrievalPolicy,
     RetrievalRules,
+    ingredient_match_details,
 )
-from fridge_rescue.rule_checker import ingredient_terms_overlap, normalize_token
 from fridge_rescue.schemas import RecipeRecord, UserRequest
 from fridge_rescue.settings import PROJECT_ROOT, get_settings
 from fridge_rescue.workflow import FridgeRescueWorkflow, WorkflowOutcome
@@ -44,7 +48,7 @@ MODE_LABELS = {
     OFFLINE_MODE: "📚 Local retrieval · 本地检索",
 }
 MODE_DESCRIPTIONS = {
-    AGENTIC_MODE: "Searches the curated recipe collection, then validates ingredient fit and the optional time limit.",
+    AGENTIC_MODE: "Searches the curated recipe collection, then validates ingredient fit.",
     BASELINE_MODE: "Generates directly with AI, without recipe retrieval; included for comparison.",
     OFFLINE_MODE: "Searches the local recipe collection only, with no external AI call or API cost.",
 }
@@ -128,6 +132,13 @@ def _inject_app_styles() -> None:
             font-size: .86rem;
             font-weight: 500;
             line-height: 1.55;
+        }
+
+        .fr-source-line {
+            margin: .35rem 0;
+            color: #3f332c;
+            line-height: 1.55;
+            white-space: pre-wrap;
         }
 
         .fr-zh {
@@ -249,24 +260,35 @@ def load_offline_runtime() -> tuple[
     return repository, retriever, reviewed_notes, pantry_staples
 
 
-def _ingredient_is_available(ingredient: str, available: Sequence[str]) -> bool:
-    return any(ingredient_terms_overlap(ingredient, item) for item in available)
-
-
 def _coverage_summary(
     recipe: RecipeRecord,
     request: UserRequest,
     pantry_staples: Sequence[str],
+    ingredient_aliases: Mapping[str, str],
 ) -> tuple[list[str], list[str]]:
-    available = [normalize_token(item) for item in request.available_ingredients]
-    pantry = [normalize_token(item) for item in pantry_staples]
     matched: list[str] = []
     missing: list[str] = []
-    for ingredient in recipe.ingredients_normalized:
-        if _ingredient_is_available(ingredient, [*available, *pantry]):
-            matched.append(ingredient)
+    for normalized_line, original_line in zip(
+        recipe.ingredients_normalized,
+        recipe.ingredient_lines_original,
+        strict=True,
+    ):
+        one_line_recipe = recipe.model_copy(
+            update={
+                "ingredient_lines_original": [original_line],
+                "ingredients_normalized": [normalized_line],
+            }
+        )
+        details = ingredient_match_details(
+            one_line_recipe,
+            request.available_ingredients,
+            pantry_staples,
+            ingredient_aliases,
+        )
+        if details.missing_count == 0:
+            matched.append(original_line)
         else:
-            missing.append(ingredient)
+            missing.append(original_line)
     return matched, missing
 
 
@@ -274,14 +296,22 @@ def _display_recipe(
     recipe: RecipeRecord,
     request: UserRequest,
     pantry_staples: Sequence[str],
+    ingredient_aliases: Mapping[str, str],
     *,
     reason: str,
     substitution_notes: Sequence[str] = (),
 ) -> None:
-    matched, missing = _coverage_summary(recipe, request, pantry_staples)
+    matched, missing = _coverage_summary(
+        recipe,
+        request,
+        pantry_staples,
+        ingredient_aliases,
+    )
     with st.container(border=True):
         st.subheader(f"🍽️ {recipe.title}")
-        facts = [f"⏱️ {recipe.total_time_minutes} min"]
+        facts: list[str] = []
+        if recipe.total_time_minutes is not None:
+            facts.append(f"⏱️ {recipe.total_time_minutes} min")
         if recipe.rating is not None:
             facts.append(f"⭐ {recipe.rating:.1f}/5")
         facts.append(f"🧺 {len(matched)}/{len(recipe.ingredients_normalized)} ingredients covered")
@@ -297,20 +327,26 @@ def _display_recipe(
             ["Ingredients · 食材", "Steps · 步骤", "Source · 来源"]
         )
         with ingredient_tab:
-            ingredient_lines, quantities_were_used = ingredient_display_lines(recipe)
-            if not quantities_were_used:
-                st.caption(
-                    "Quantities are hidden because they could not be matched reliably. "
-                    "· 原始用量无法可靠对应。"
+            for ingredient_line in ingredient_display_lines(recipe):
+                st.markdown(
+                    authoritative_source_line_html(ingredient_line, prefix="•"),
+                    unsafe_allow_html=True,
                 )
-            for ingredient_line in ingredient_lines:
-                st.text(f"• {ingredient_line}")
         with instruction_tab:
             for step_number, instruction in enumerate(recipe.instructions_original, start=1):
-                st.text(f"{step_number}. {instruction}")
+                st.markdown(
+                    authoritative_source_line_html(
+                        instruction,
+                        prefix=f"{step_number}.",
+                    ),
+                    unsafe_allow_html=True,
+                )
         with evidence_tab:
-            st.code(f"Food.com RecipeId: {recipe.source_record_id}")
-            st.write("Retrieved from the curated local collection of 2,000 Food.com recipes.")
+            st.code(f"Epicurious dataset row: {recipe.source_record_id}")
+            st.write("Retrieved from the curated local collection of 2,000 Epicurious recipes.")
+            st.caption(
+                "Curated from the CC BY-SA 3.0 Food Ingredients and Recipe Dataset with Images."
+            )
             if substitution_notes:
                 st.markdown("**Reviewed substitution notes**")
                 for note in substitution_notes:
@@ -321,6 +357,7 @@ def _display_workflow_outcome(
     outcome: WorkflowOutcome,
     request: UserRequest,
     pantry_staples: Sequence[str],
+    ingredient_aliases: Mapping[str, str],
     *,
     max_recommendations: int,
 ) -> None:
@@ -330,6 +367,7 @@ def _display_workflow_outcome(
                 recommendation.recipe,
                 request,
                 pantry_staples,
+                ingredient_aliases,
                 reason=recommendation.reason,
                 substitution_notes=recommendation.substitution_notes,
             )
@@ -472,15 +510,6 @@ with st.form("recipe_request"):
         placeholder="e.g. peanuts, milk (optional) · 例如：花生、牛奶",
         help="Enter ingredient names only. Allergy filtering is a precautionary text check.",
     )
-    max_time = st.number_input(
-        "Maximum cooking time (minutes) · 最长时间（分钟）",
-        min_value=1,
-        max_value=1440,
-        value=None,
-        step=1,
-        placeholder="e.g. 45",
-        help="Optional. Enter any whole number from 1 to 1440, or leave it blank for no limit.",
-    )
     submitted = st.form_submit_button(
         "🍽️ Find recipes",
         type="primary",
@@ -495,7 +524,7 @@ if submitted:
         request = UserRequest(
             available_ingredients=available_ingredients,
             excluded_ingredients=excluded_ingredients,
-            max_time_minutes=max_time,
+            max_time_minutes=None,
         )
     except UnsupportedChineseIngredientError as error:
         st.error(str(error))
@@ -517,12 +546,18 @@ if submitted:
                     if not recipes:
                         st.warning("No recipe matches these ingredients and filters yet.")
                     for recipe in recipes:
-                        matched, _ = _coverage_summary(recipe, request, pantry_staples)
+                        matched, _ = _coverage_summary(
+                            recipe,
+                            request,
+                            pantry_staples,
+                            ingredient_aliases,
+                        )
                         reason = f"Matches {len(matched)} of the ingredients you already have."
                         _display_recipe(
                             recipe,
                             request,
                             pantry_staples,
+                            ingredient_aliases,
                             reason=reason,
                         )
                 elif mode == BASELINE_MODE:
@@ -570,6 +605,7 @@ if submitted:
                         workflow.run(request),
                         request,
                         pantry_staples,
+                        ingredient_aliases,
                         max_recommendations=max_recommendations,
                     )
         except BaselineError:

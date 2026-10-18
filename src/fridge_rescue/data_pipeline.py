@@ -1,4 +1,10 @@
-"""Deterministic Food.com cleaning helpers used by the corpus builder."""
+"""Shared deterministic recipe-cleaning helpers.
+
+The current Epicurious pipeline imports the generic text, category, equipment,
+diet, and scope helpers below. Legacy Food.com parsing functions remain only so
+archived development evidence can still be reproduced; they are not used to
+build the released Corpus v3.1.
+"""
 
 from __future__ import annotations
 

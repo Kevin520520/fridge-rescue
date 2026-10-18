@@ -1,0 +1,21 @@
+{
+  "arms": "baseline_a,agentic",
+  "case_count": 24,
+  "cases_sha256": "38d76c5e4499bad37a42307db4bd7e5d5a3c67df7ccfcb0eec514a310e21ac21",
+  "completed_at_utc": "2026-10-18T08:48:39.520819+00:00",
+  "completed_repetitions": 1,
+  "config_sha256": "d2360ebd014ebc42b67cb7dcf8352a3879fb3546f5b40825cb52f15d0cfe1672",
+  "configured_development_case_count": 24,
+  "configured_final_case_count": 20,
+  "corpus_sha256": "1fbeeaa09544940884e64dc94a9b3666658a5956790c7f36487f26892371e690",
+  "input_cost_per_million_usd": null,
+  "model": "deepseek-flash",
+  "output_cost_per_million_usd": null,
+  "prompts_sha256": "8e0c72b6d38d1ad51ed0ec99172b1788bb8d3af6d5d12c36b8b7a80f9292e932",
+  "provider": "deepseek",
+  "repetitions": 1,
+  "rules_sha256": "b1622d52c4aa886c90480cdba384afa85d07a0ef54db402367f38e0ed3a19cc0",
+  "run_kind": "development",
+  "source_manifest_sha256": "080bfc00f7b34f09915937935e0ea1f53e7d4e12c4ac5e5e024b4a0c23ca2d41",
+  "started_at_utc": "2026-10-18T08:46:34.627112+00:00"
+}

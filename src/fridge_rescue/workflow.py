@@ -434,6 +434,7 @@ class FridgeRescueWorkflow:
             record.ingredients_normalized,
             request.excluded_ingredients,
             self.allergen_aliases,
+            self.ingredient_aliases,
         )
         if excluded:
             errors.append(f"{record.recipe_id}: contains excluded ingredients {sorted(excluded)}")

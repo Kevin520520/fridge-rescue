@@ -1,0 +1,77 @@
+{
+  "source": "E:\\machine learning\\fridge-rescue\\data\\raw\\epicurious_recipes.csv",
+  "format": "csv",
+  "total_rows": 13501,
+  "required_columns": {
+    "all_present": true,
+    "missing": []
+  },
+  "schema": [
+    {
+      "name": "",
+      "type": "string"
+    },
+    {
+      "name": "Title",
+      "type": "string"
+    },
+    {
+      "name": "Ingredients",
+      "type": "string"
+    },
+    {
+      "name": "Instructions",
+      "type": "string"
+    },
+    {
+      "name": "Image_Name",
+      "type": "string"
+    },
+    {
+      "name": "Cleaned_Ingredients",
+      "type": "string"
+    }
+  ],
+  "quality": {
+    "blank_fields": {
+      "Instructions": 8,
+      "Title": 5
+    },
+    "source_record_id": {
+      "unique_nonblank": 13501,
+      "duplicate_rows": 0
+    },
+    "ingredient_parsing": {
+      "valid_list_rows": 13500,
+      "errors": {
+        "blank_ingredient_line": 1
+      },
+      "count_buckets": {
+        "00-02": 124,
+        "03-06": 2508,
+        "07-12": 6796,
+        "13+": 4072
+      }
+    },
+    "instructions": {
+      "count_buckets": {
+        "00-01": 1599,
+        "02-04": 6437,
+        "05-08": 4591,
+        "09+": 874
+      }
+    },
+    "source_measurement_coverage": {
+      "mean": 0.914745,
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "buckets": {
+        "0.00-0.49": 113,
+        "0.50-0.74": 701,
+        "0.75-0.99": 6376,
+        "1.00": 6310
+      }
+    },
+    "exact_duplicate_source_rows": 0
+  }
+}
