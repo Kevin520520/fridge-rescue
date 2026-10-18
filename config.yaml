@@ -1,0 +1,13 @@
+project:
+  name: Fridge Rescue
+  corpus_size: 2000
+  random_seed: 6012
+
+retrieval:
+  candidate_pool_size: 10
+  max_recommendations: 3
+  minimum_coverage: 0.25
+  max_missing_ingredients: 6
+
+workflow:
+  max_repairs: 1

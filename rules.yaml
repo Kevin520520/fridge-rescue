@@ -1,0 +1,259 @@
+pantry_staples:
+  - water
+  - salt
+  - black pepper
+  - cooking oil
+
+# A selected recipe must have at least two independent Food.com reviews. This
+# conservative evidence threshold reduces untested or incomplete source records;
+# it is a curation criterion, not a claim that reviewed recipes are error-free.
+curation:
+  minimum_review_count: 2
+
+ingredient_aliases:
+  scallions: green onion
+  spring onions: green onion
+  green onions: green onion
+  bell peppers: bell pepper
+  green pepper: bell pepper
+  green bell pepper: bell pepper
+  red bell pepper: bell pepper
+  eggs: egg
+  tomatoes: tomato
+  onions: onion
+  garlic clove: garlic
+  garlic cloves: garlic
+  potatoes: potato
+  carrots: carrot
+  mushrooms: mushroom
+  chicken breasts: chicken breast
+
+  # Reviewed Chinese UI aliases. Values use canonical English terms that
+  # occur in the curated corpus so all three application modes receive the
+  # same reproducible UserRequest.
+  鸡蛋: egg
+  蛋: egg
+  番茄: tomato
+  西红柿: tomato
+  洋葱: onion
+  葱头: onion
+  大蒜: garlic
+  蒜: garlic
+  蒜瓣: garlic
+  葱: green onion
+  小葱: green onion
+  青葱: green onion
+  香葱: green onion
+  土豆: potato
+  马铃薯: potato
+  胡萝卜: carrot
+  红萝卜: carrot
+  芹菜: celery
+  西芹: celery
+  蘑菇: mushroom
+  口蘑: mushroom
+  菠菜: spinach
+  黄瓜: cucumber
+  青瓜: cucumber
+  彩椒: bell pepper
+  甜椒: bell pepper
+  灯笼椒: bell pepper
+  青椒: bell pepper
+  西兰花: broccoli
+  包菜: cabbage
+  卷心菜: cabbage
+  圆白菜: cabbage
+  鸡肉: chicken
+  牛肉: beef
+  猪肉: pork
+  培根: bacon
+  虾: shrimp
+  虾仁: shrimp
+  三文鱼: salmon
+  鲑鱼: salmon
+  豆腐: tofu
+  米饭: rice
+  大米: rice
+  面粉: flour
+  糖: sugar
+  白糖: sugar
+  红糖: brown sugar
+  黑糖: brown sugar
+  盐: salt
+  黑胡椒: black pepper
+  橄榄油: olive oil
+  黄油: butter
+  牛奶: milk
+  奶酪: cheese
+  芝士: cheese
+  酱油: soy sauce
+  生抽: soy sauce
+  醋: vinegar
+  姜: ginger
+  生姜: ginger
+  香菜: cilantro
+  芫荽: cilantro
+  玉米淀粉: cornstarch
+  生粉: cornstarch
+  柠檬汁: lemon juice
+  蜂蜜: honey
+  蛋黄酱: mayonnaise
+  美乃滋: mayonnaise
+  番茄酱: ketchup
+  花生: peanut
+  坚果: tree_nut
+
+allergen_aliases:
+  peanut:
+    - peanuts
+    - peanut butter
+    - groundnut
+  milk:
+    - dairy milk
+    - milk powder
+  tree_nut:
+    - almond
+    - cashew
+    - walnut
+
+equipment_keywords:
+  oven:
+    - oven
+    - bake
+    - baked
+    - roast
+    - roasted
+  microwave:
+    - microwave
+  blender_or_food_processor:
+    - blender
+    - food processor
+  slow_cooker:
+    - slow cooker
+    - crock pot
+    - crockpot
+  grill:
+    - grill
+    - grilled
+  waffle_iron:
+    - waffle iron
+
+# Compound phrases that name cookware rather than the appliance itself.
+# They are masked only for the matching equipment tag; an explicit "bake" or
+# second "oven" elsewhere in the text still produces the oven tag.
+equipment_exclusion_phrases:
+  oven:
+    - dutch oven
+    - bake in waffle iron
+    - bake in a waffle iron
+    - bake in hot waffle iron
+    - bake in a hot waffle iron
+  blender_or_food_processor:
+    - pastry blender
+    - if you have a food processor
+
+# High-precision scope filters used only during corpus curation. Bare words
+# such as "dog", "cat" and "pet" are intentionally omitted to protect valid
+# recipes such as hot dogs and catfish.
+scope_exclusion_markers:
+  pet_food:
+    - for dogs
+    - for cats
+    - dog food
+    - dog treats
+    - dog biscuits
+    - dog cookies
+    - cat food
+    - cat treats
+    - cat biscuits
+    - cat cookies
+    - pet food
+    - pet treats
+    - puppy treats
+    - kitten treats
+    - canine feeding
+    - feline feeding
+  non_food:
+    - face mask
+    - facial mask
+    - body scrub
+    - bath salts
+    - household cleaner
+
+# Source defects confirmed against both the raw row and the curated record by
+# frozen Curation v1/v2 AI-assisted audits. These records cannot be repaired
+# without inventing ingredients or other source facts.
+reviewed_source_exclusions:
+  "398552": missing_required_chocolate
+  "150396": missing_required_horseradish
+  "368682": ingredient_instruction_stock_conflict
+  "529699": missing_required_lard_and_butter
+  "444767": duplicate_ingredient_hides_required_oil
+  "275695": missing_defining_cooking_steps
+  "526383": missing_required_jalapeno
+  "135340": missing_required_yogurt
+  "107856": conflicting_sweetener_product
+  "119810": missing_required_whipped_cream
+  "266782": declared_total_time_omits_sequential_cooking
+  "416910": declared_total_time_omits_required_resting
+  "75644": missing_required_frying_fat
+  "42520": missing_required_grape_juice_or_fruit_nectar
+
+diet_conflict_markers:
+  vegetarian:
+    - beef
+    - chicken
+    - pork
+    - bacon
+    - ham
+    - turkey
+    - lamb
+    - fish
+    - salmon
+    - tuna
+    - shrimp
+    - prawn
+    - anchovy
+    - gelatin
+  vegan:
+    - beef
+    - chicken
+    - pork
+    - bacon
+    - ham
+    - turkey
+    - lamb
+    - fish
+    - salmon
+    - tuna
+    - shrimp
+    - prawn
+    - anchovy
+    - gelatin
+    - egg
+    - milk
+    - butter
+    - cheese
+    - cream
+    - yogurt
+    - honey
+
+# Substitution rules apply only to the listed contexts and retain their warnings.
+substitutions:
+  butter:
+    substitute: olive oil
+    allowed_contexts:
+      - saute
+      - pan fry
+    warning: Not guaranteed to work for baking.
+  milk:
+    substitute: unsweetened soy milk
+    allowed_contexts:
+      - soup
+      - sauce
+    warning: Check allergy requirements and flavour compatibility.
+  egg:
+    substitute: flax egg
+    allowed_contexts:
+      - binding
+    warning: Not a general replacement for omelettes or egg-based dishes.
