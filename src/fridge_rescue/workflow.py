@@ -493,34 +493,37 @@ class FridgeRescueWorkflow:
             if selection.recipe_id in feasible_ids
         ]
         if feasible_records and selected_records:
-            candidate_utilizations = {
+            candidate_matches = {
                 record.recipe_id: ingredient_match_details(
                     record,
                     request.available_ingredients,
                     self.pantry_staples,
                     self.ingredient_aliases,
-                ).input_utilization
+                )
                 for record in feasible_records
             }
-            best_candidate_utilization = max(candidate_utilizations.values())
-            best_selected_utilization = max(
-                ingredient_match_details(
-                    record,
-                    request.available_ingredients,
-                    self.pantry_staples,
-                    self.ingredient_aliases,
-                ).input_utilization
-                for record in selected_records
+            best_candidate_utilization = max(
+                match.input_utilization for match in candidate_matches.values()
             )
-            if best_selected_utilization + 1e-9 < best_candidate_utilization:
-                best_candidate_ids = sorted(
-                    recipe_id
-                    for recipe_id, utilization in candidate_utilizations.items()
-                    if abs(utilization - best_candidate_utilization) <= 1e-9
-                )
+            best_utilization_ids = {
+                recipe_id
+                for recipe_id, match in candidate_matches.items()
+                if abs(match.input_utilization - best_candidate_utilization) <= 1e-9
+            }
+            minimum_missing_count = min(
+                candidate_matches[recipe_id].missing_count
+                for recipe_id in best_utilization_ids
+            )
+            best_candidate_ids = sorted(
+                recipe_id
+                for recipe_id in best_utilization_ids
+                if candidate_matches[recipe_id].missing_count == minimum_missing_count
+            )
+            if not any(record.recipe_id in best_candidate_ids for record in selected_records):
                 errors.append(
-                    "The selected recipes have lower input_utilization than the best "
-                    "feasible candidates. Include at least one of these recipe IDs: "
+                    "The selected recipes do not satisfy the required relevance order: "
+                    "maximize input_utilization, then minimize missing non-pantry "
+                    "ingredients. Include at least one of these recipe IDs: "
                     f"{', '.join(best_candidate_ids)}."
                 )
         return errors
@@ -534,7 +537,7 @@ class FridgeRescueWorkflow:
         missing = [recipe_id for recipe_id in selected_ids if recipe_id not in authoritative]
         if missing:
             raise ValueError(f"Repository could not hydrate selected IDs: {missing}")
-        return [
+        recommendations = [
             HydratedRecommendation(
                 recipe=authoritative[selection.recipe_id],
                 reason=selection.reason,
@@ -542,6 +545,32 @@ class FridgeRescueWorkflow:
             )
             for selection in draft.selections
         ]
+        request = UserRequest.model_validate(state["request"])
+        candidate_order = {
+            record.recipe_id: index
+            for index, record in enumerate(state.get("candidate_records", []))
+        }
+
+        def preference_key(
+            recommendation: HydratedRecommendation,
+        ) -> tuple[float, int, float, int, int, str]:
+            match = ingredient_match_details(
+                recommendation.recipe,
+                request.available_ingredients,
+                self.pantry_staples,
+                self.ingredient_aliases,
+            )
+            return (
+                -match.input_utilization,
+                match.missing_count,
+                -match.recipe_coverage,
+                -match.matched_input_count,
+                candidate_order.get(recommendation.recipe.recipe_id, len(candidate_order)),
+                recommendation.recipe.recipe_id,
+            )
+
+        recommendations.sort(key=preference_key)
+        return recommendations
 
     def _validate_answer(self, state: AgentWorkflowState) -> AgentWorkflowState:
         trace = _append_trace(state, "validate_answer")

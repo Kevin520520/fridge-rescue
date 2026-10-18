@@ -158,7 +158,7 @@ class _RankedRecipe:
     @property
     def sort_key(
         self,
-    ) -> tuple[float, int, int, float, float, float, int, tuple[int, int | str]]:
+    ) -> tuple[float, int, float, int, float, float, int, tuple[int, int | str]]:
         """Rank inventory use first, then shopping burden and corpus quality."""
 
         numeric_id = int(self.recipe_id) if self.recipe_id.isdigit() else None
@@ -167,9 +167,9 @@ class _RankedRecipe:
         )
         return (
             -self.input_utilization,
-            -self.matched_input_count,
             self.missing_count,
             -self.coverage,
+            -self.matched_input_count,
             -self.quality,
             -self.rating,
             -self.review_count,
@@ -294,6 +294,189 @@ def _terms_overlap(first: str, second: str) -> bool:
     return _normalized_terms_overlap(normalize_token(first), normalize_token(second))
 
 
+# These words may describe the quantity, preparation, or serving of a pantry
+# staple without turning it into a different ingredient. Any other word keeps
+# the full line in the shopping-burden calculation. This prevents phrases such
+# as "low-salt chicken broth" and "rose water" from disappearing merely
+# because they contain the words "salt" or "water".
+_PANTRY_CONTEXT_WORDS = frozenset(
+    {
+        "a",
+        "additional",
+        "and",
+        "approximately",
+        "as",
+        "at",
+        "about",
+        "boiling",
+        "bottled",
+        "c",
+        "cold",
+        "coarse",
+        "coarsely",
+        "cup",
+        "cups",
+        "dash",
+        "dashes",
+        "de",
+        "diamond",
+        "divided",
+        "f",
+        "filtered",
+        "fine",
+        "finely",
+        "flaky",
+        "fleur",
+        "for",
+        "fresh",
+        "freshly",
+        "g",
+        "gallon",
+        "gallons",
+        "garnish",
+        "ground",
+        "hot",
+        "ice",
+        "if",
+        "kg",
+        "kosher",
+        "l",
+        "liter",
+        "liters",
+        "litre",
+        "litres",
+        "lukewarm",
+        "maldon",
+        "milliliter",
+        "milliliters",
+        "millilitre",
+        "millilitres",
+        "ml",
+        "more",
+        "needed",
+        "of",
+        "or",
+        "ounce",
+        "ounces",
+        "oz",
+        "packed",
+        "pinch",
+        "pinches",
+        "plus",
+        "quart",
+        "quarts",
+        "room",
+        "seasoning",
+        "sea",
+        "sel",
+        "such",
+        "sprinkling",
+        "tablespoon",
+        "tablespoons",
+        "table",
+        "tap",
+        "taste",
+        "teaspoon",
+        "teaspoons",
+        "temperature",
+        "to",
+        "tbsp",
+        "tbsps",
+        "tsp",
+        "tsps",
+        "warm",
+    }
+)
+
+
+def _pantry_content_words(value: str) -> tuple[str, ...]:
+    """Return ingredient words after safe measurement and descriptor removal."""
+
+    return tuple(
+        word
+        for word in re.findall(r"[a-z]+", normalize_token(value))
+        if word not in _PANTRY_CONTEXT_WORDS
+    )
+
+
+def _is_pantry_only_ingredient(
+    ingredient: str,
+    pantry_staples: Sequence[str],
+) -> bool:
+    """Return true only when the complete line is a configured pantry staple.
+
+    Pantry detection is intentionally conservative. A pantry word embedded in
+    another product is not enough to hide that product from the missing-food
+    count shown to the user.
+    """
+
+    configured = {words for staple in pantry_staples if (words := _pantry_content_words(staple))}
+    content = _pantry_content_words(ingredient)
+    if not content or not configured:
+        return False
+    if content in configured:
+        return True
+
+    has_salt = ("salt",) in configured
+    has_black_pepper = ("black", "pepper") in configured
+    if has_black_pepper and content == ("pepper",):
+        return True
+    return has_salt and has_black_pepper and content in {
+        ("salt", "black", "pepper"),
+        ("salt", "pepper"),
+        ("black", "pepper", "salt"),
+        ("pepper", "salt"),
+    }
+
+
+def matched_input_surface_phrases(
+    ingredient_line: str,
+    available_ingredients: Sequence[str],
+    aliases: Mapping[str, str] | None = None,
+) -> tuple[str, ...]:
+    """Return literal source phrases that correspond to explicit user inputs.
+
+    The same canonicalization and non-equivalence rules used by retrieval gate
+    the result. Returned phrases are source-side terms for display only; recipe
+    text is never rewritten.
+    """
+
+    canonicalizer = _cached_canonicalizer(_normalized_alias_items(aliases or {}))
+    canonical_line = canonicalizer.canonicalize(ingredient_line)
+    canonical_inputs = tuple(
+        dict.fromkeys(
+            canonicalizer.canonicalize(item)
+            for item in available_ingredients
+            if normalize_token(item)
+        )
+    )
+    matched_inputs = tuple(
+        item
+        for item in canonical_inputs
+        if _normalized_terms_overlap(canonical_line, item)
+    )
+    if not matched_inputs:
+        return ()
+
+    alias_sources = tuple(source for source, _ in _normalized_alias_items(aliases or {}))
+    candidates = {
+        normalize_token(item)
+        for item in [*available_ingredients, *alias_sources, *matched_inputs]
+        if normalize_token(item)
+    }
+    normalized_line = normalize_token(ingredient_line)
+    phrases = {
+        phrase
+        for phrase in candidates
+        if _contains_normalized_phrase(normalized_line, phrase)
+        and any(
+            _normalized_terms_overlap(canonicalizer.canonicalize(phrase), matched)
+            for matched in matched_inputs
+        )
+    }
+    return tuple(sorted(phrases, key=lambda phrase: (-len(phrase), phrase)))
+
+
 @dataclass(frozen=True)
 class IngredientMatchDetails:
     """Explain how a recipe uses the inventory supplied in one request."""
@@ -315,7 +498,7 @@ def _match_details_from_canonical_terms(
     non_pantry = [
         ingredient
         for ingredient in required
-        if not any(_normalized_terms_overlap(ingredient, staple) for staple in pantry)
+        if not _is_pantry_only_ingredient(ingredient, pantry)
     ]
     return _match_details_for_non_pantry(
         non_pantry,
@@ -447,9 +630,9 @@ class DeterministicRecipeRetriever:
 
     Candidates first have to meet the configured minimum ingredient coverage
     and maximum missing-ingredient count. The survivors are ranked by this
-    exact lexicographic order: user-input utilization descending, matched user
-    ingredient count descending, missing count ascending, recipe-side
-    ingredient coverage descending, quality descending, rating descending, review
+    exact lexicographic order: user-input utilization descending, missing count
+    ascending, recipe-side ingredient coverage descending, matched user
+    ingredient count descending, quality descending, rating descending, review
     count descending, and recipe ID ascending. No embedding or semantic-
     similarity score is used. The final ID tie-breaker makes identical calls
     reproducible across processes and machines.
@@ -510,10 +693,7 @@ class DeterministicRecipeRetriever:
         non_pantry_ingredients = tuple(
             ingredient
             for ingredient in canonical_ingredients
-            if not any(
-                _normalized_terms_overlap(ingredient, staple)
-                for staple in self._pantry_staples
-            )
+            if not _is_pantry_only_ingredient(ingredient, self._pantry_staples)
         )
         return _PreparedRecipe(
             record=recipe,

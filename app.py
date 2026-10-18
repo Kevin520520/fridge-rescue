@@ -32,6 +32,7 @@ from fridge_rescue.retrieval import (
     RetrievalPolicy,
     RetrievalRules,
     ingredient_match_details,
+    matched_input_surface_phrases,
 )
 from fridge_rescue.schemas import RecipeRecord, UserRequest
 from fridge_rescue.settings import PROJECT_ROOT, get_settings
@@ -143,23 +144,12 @@ def _inject_app_styles() -> None:
             white-space: pre-wrap;
         }
 
-        .fr-source-line-hit {
-            border: 1px solid rgba(84, 137, 74, .28);
-            background: #edf7e9;
-            color: #284b28;
-            font-weight: 650;
-        }
-
-        .fr-source-hit-badge {
-            display: inline-block;
-            margin-left: .65rem;
-            padding: .08rem .48rem;
-            border-radius: 999px;
-            background: #d8ecd2;
-            color: #315c31;
-            font-size: .72rem;
+        .fr-ingredient-hit {
+            padding: .05rem .16rem;
+            border-radius: .3rem;
+            background: #dff1d8;
+            color: #28522b;
             font-weight: 800;
-            vertical-align: .08rem;
         }
 
         .fr-zh {
@@ -330,33 +320,23 @@ def _requested_ingredient_summary(
     return details.matched_input_count, total_requested
 
 
-def _requested_ingredient_line_matches(
+def _requested_ingredient_line_highlights(
     recipe: RecipeRecord,
     request: UserRequest,
     ingredient_aliases: Mapping[str, str],
-) -> list[bool]:
-    """Mark source ingredient lines that match an explicitly entered ingredient."""
+) -> list[tuple[str, ...]]:
+    """Return source-side phrases matching ingredients explicitly entered by the user."""
 
-    matches: list[bool] = []
-    for normalized_line, original_line in zip(
-        recipe.ingredients_normalized,
-        recipe.ingredient_lines_original,
-        strict=True,
-    ):
-        one_line_recipe = recipe.model_copy(
-            update={
-                "ingredient_lines_original": [original_line],
-                "ingredients_normalized": [normalized_line],
-            }
+    highlights: list[tuple[str, ...]] = []
+    for original_line in recipe.ingredient_lines_original:
+        highlights.append(
+            matched_input_surface_phrases(
+                original_line,
+                request.available_ingredients,
+                ingredient_aliases,
+            )
         )
-        details = ingredient_match_details(
-            one_line_recipe,
-            request.available_ingredients,
-            (),
-            ingredient_aliases,
-        )
-        matches.append(details.matched_input_count > 0)
-    return matches
+    return highlights
 
 
 def _display_recipe(
@@ -379,7 +359,7 @@ def _display_recipe(
         request,
         ingredient_aliases,
     )
-    requested_line_matches = _requested_ingredient_line_matches(
+    requested_line_highlights = _requested_ingredient_line_highlights(
         recipe,
         request,
         ingredient_aliases,
@@ -408,18 +388,16 @@ def _display_recipe(
             ["Ingredients · 食材", "Steps · 步骤", "Source · 来源"]
         )
         with ingredient_tab:
-            for ingredient_line, is_requested_match in zip(
+            for ingredient_line, highlight_phrases in zip(
                 ingredient_display_lines(recipe),
-                requested_line_matches,
+                requested_line_highlights,
                 strict=True,
             ):
                 st.markdown(
                     authoritative_source_line_html(
                         ingredient_line,
                         prefix="•",
-                        highlight_label=(
-                            "✓ In your fridge · 已有" if is_requested_match else None
-                        ),
+                        highlight_phrases=highlight_phrases,
                     ),
                     unsafe_allow_html=True,
                 )

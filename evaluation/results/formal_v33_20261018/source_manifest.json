@@ -1,11 +1,11 @@
 {
   "algorithm": "sha256",
-  "combined_sha256": "ce5de20ecb71aa77290d6561eade979183defee7fc8d7cc0a817b094a5e4f194",
+  "combined_sha256": "4b2f873e0601c7a0cd957e6ce9453b5037d22a539876b8110472fc53b8f526aa",
   "files": [
     {
       "path": "app.py",
-      "sha256": "d3330189c39c32401bce97b5f6529023fc699c929f0132f56781dc9b5de5bc59",
-      "size_bytes": 25701
+      "sha256": "bbf73694e73415ce4a8b920a2a2e2de454893b9ad5176de5994ad775570418a5",
+      "size_bytes": 25027
     },
     {
       "path": "config.yaml",
@@ -14,8 +14,8 @@
     },
     {
       "path": "prompts.yaml",
-      "sha256": "df91b63702a30ea59a5a47b07f9c8904b68597e14b52697a0135fb57e830e66b",
-      "size_bytes": 1288
+      "sha256": "215c2d9fd74bb7cc596c3e280e0ccaa92e12c6219e8b2d6bc2bf8f6f684d3157",
+      "size_bytes": 1294
     },
     {
       "path": "pyproject.toml",
@@ -29,8 +29,8 @@
     },
     {
       "path": "rules.yaml",
-      "sha256": "6ef17a8a421f0804e723dba64998f642be79772c49620ca7348a573bc461faea",
-      "size_bytes": 15093
+      "sha256": "6d3fa92a8c229c7535b5029d1614e194edfe2495a3801b8ec7e43a191e3f8455",
+      "size_bytes": 14710
     },
     {
       "path": "src/fridge_rescue/__init__.py",
@@ -74,8 +74,8 @@
     },
     {
       "path": "src/fridge_rescue/presentation.py",
-      "sha256": "643a6257944396802833afd24131090bcfa934b36684b6494606bf1e519ac923",
-      "size_bytes": 1592
+      "sha256": "215cda93576c5d6c5deebcb77b336e6db835cc27c55537bab0e5ad4085fc7a68",
+      "size_bytes": 2604
     },
     {
       "path": "src/fridge_rescue/repository.py",
@@ -84,8 +84,8 @@
     },
     {
       "path": "src/fridge_rescue/retrieval.py",
-      "sha256": "5336fe2cd02001ec2a24bdcc89542e58c081f7e732f9e54d19893983add67693",
-      "size_bytes": 22812
+      "sha256": "51aae16ef286d382f40101ed41ab965be67fd47d1b83cad546b23c324fb3fddd",
+      "size_bytes": 27517
     },
     {
       "path": "src/fridge_rescue/rule_checker.py",
@@ -109,8 +109,8 @@
     },
     {
       "path": "src/fridge_rescue/workflow.py",
-      "sha256": "a6e6d084a0131a181129dbe6a846d34ed112a2070996e6b54e1c3542261d5722",
-      "size_bytes": 23571
+      "sha256": "053a0f3a5cecba07adfefb41d4285ec4b48a3c495031785177617124bc1a647b",
+      "size_bytes": 24729
     },
     {
       "path": "scripts/audit_curated_corpus.py",
@@ -158,14 +158,9 @@
       "size_bytes": 13050
     },
     {
-      "path": "tests/test_app.py",
-      "sha256": "41fe9d781cc9542668942e85fe1b131f8896501b085b07f8353ae17eb97e5b7a",
-      "size_bytes": 4080
-    },
-    {
       "path": "tests/test_app_coverage.py",
-      "sha256": "8f601463355717a8397d69a3069e62ccbc67f7972b8065bd19910bfba4cf83bd",
-      "size_bytes": 3091
+      "sha256": "d38eb4cd1275cb3d2dc72c58cbd365272a388cc32f1ad0b7ba19670647c1f13a",
+      "size_bytes": 4430
     },
     {
       "path": "tests/test_audit_curated_corpus.py",
@@ -179,8 +174,8 @@
     },
     {
       "path": "tests/test_chinese_ui_acceptance.py",
-      "sha256": "cc8ecbb602a103d644cc2f988a6d7d075a531f30bc81e64cc2b656de7aad0552",
-      "size_bytes": 2135
+      "sha256": "9d62a35952bb2c0e818a3e43ad56bad4f08c320d55f08f87850813bcd0bdd2ad",
+      "size_bytes": 2138
     },
     {
       "path": "tests/test_curation.py",
@@ -219,13 +214,13 @@
     },
     {
       "path": "tests/test_presentation.py",
-      "sha256": "165dd5686a6bcd9cc565f13136839636ea177e52fc6f0104ddc79a96e5d542b2",
-      "size_bytes": 2274
+      "sha256": "c91be759b3fe6391227ec53da17258bc0d324b24541bfafb4329009d488b4dc8",
+      "size_bytes": 2924
     },
     {
       "path": "tests/test_retrieval.py",
-      "sha256": "78007390bf8c7cb17ef0cbf642b2551268b722aa0a43d313bddbad40cafd396b",
-      "size_bytes": 18840
+      "sha256": "1d13f71d7ddd0a7dcc25e3a733cb6d44099fb9323e134e3275cb938bc8a3b6ca",
+      "size_bytes": 21134
     },
     {
       "path": "tests/test_rule_checker.py",
@@ -269,8 +264,8 @@
     },
     {
       "path": "tests/test_workflow.py",
-      "sha256": "f9f31a30c5bc8fa1154467565bf28dd12bb11a928899b38d35efe8aa59cd0ba3",
-      "size_bytes": 12918
+      "sha256": "4ac47fa345a71bad920074f438e39face194eebf11db45db45d2ff4a30419209",
+      "size_bytes": 15028
     }
   ]
 }

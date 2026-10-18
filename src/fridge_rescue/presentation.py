@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import html
+import re
+from collections.abc import Sequence
 
 from fridge_rescue.schemas import RecipeRecord
 
@@ -30,19 +32,44 @@ def authoritative_source_line_html(
     text: str,
     *,
     prefix: str,
-    highlight_label: str | None = None,
+    highlight_phrases: Sequence[str] = (),
 ) -> str:
-    """Render an escaped source line and optionally mark an input match."""
+    """Render escaped source text and highlight only matched ingredient phrases."""
 
     safe_prefix = html.escape(prefix, quote=True)
-    safe_text = html.escape(text, quote=True)
-    class_name = "fr-source-line fr-source-line-hit" if highlight_label else "fr-source-line"
-    badge = (
-        f'<span class="fr-source-hit-badge">{html.escape(highlight_label, quote=True)}</span>'
-        if highlight_label
-        else ""
-    )
+    spans: list[tuple[int, int]] = []
+    for phrase in sorted(
+        {value.strip() for value in highlight_phrases if value.strip()},
+        key=lambda value: (-len(value), value.casefold()),
+    ):
+        parts = [re.escape(part) for part in phrase.split()]
+        if not parts:
+            continue
+        phrase_pattern = r"\s+".join(parts)
+        pattern = re.compile(
+            rf"(?<!\w){phrase_pattern}(?!\w)",
+            flags=re.IGNORECASE,
+        )
+        spans.extend((match.start(), match.end()) for match in pattern.finditer(text))
+
+    selected: list[tuple[int, int]] = []
+    for start, end in sorted(spans, key=lambda span: (span[0], -(span[1] - span[0]))):
+        if any(start < chosen_end and end > chosen_start for chosen_start, chosen_end in selected):
+            continue
+        selected.append((start, end))
+    selected.sort()
+
+    parts_html: list[str] = []
+    cursor = 0
+    for start, end in selected:
+        parts_html.append(html.escape(text[cursor:start], quote=True))
+        parts_html.append(
+            '<mark class="fr-ingredient-hit">'
+            f"{html.escape(text[start:end], quote=True)}</mark>"
+        )
+        cursor = end
+    parts_html.append(html.escape(text[cursor:], quote=True))
     return (
-        f'<div class="{class_name}" translate="no" lang="en">'
-        f"{safe_prefix} {safe_text}{badge}</div>"
+        '<div class="fr-source-line" translate="no" lang="en">'
+        f"{safe_prefix} {''.join(parts_html)}</div>"
     )
