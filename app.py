@@ -453,7 +453,8 @@ if privacy_notice is not None:
 if not api_ready:
     st.warning(
         f"Local retrieval is available. To enable smart recommendations, add "
-        f"{settings.active_key_env_name} to the local .env file."
+        f"{settings.active_key_env_name} to the local .env file or the deployment platform's "
+        "secret settings."
     )
 
 st.markdown(

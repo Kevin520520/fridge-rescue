@@ -8,6 +8,31 @@ and validate recommendations.
 > download or process the Kaggle source again. An API key is also optional because the
 > local retrieval mode works offline.
 
+## 在线部署给组员体验（Streamlit Community Cloud）
+
+部署完成后，组员只需打开生成的 `*.streamlit.app` 链接，不需要安装Python或下载代码。
+
+1. 登录 [Streamlit Community Cloud](https://share.streamlit.io/) 并点击 **Create app**。
+2. 选择以下配置：
+   - Repository：`Kevin520520/fridge-rescue`
+   - Branch：`main`
+   - Main file path：`app.py`
+3. 打开 **Advanced settings**，Python选择 `3.13`。
+4. 如需体验Agentic和Single-prompt模式，在 **Secrets** 中填写：
+
+   ```toml
+   LLM_PROVIDER = "deepseek"
+   DEEPSEEK_API_KEY = "替换为自己的DeepSeek API Key"
+   DEEPSEEK_MODEL = "deepseek-flash"
+   DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+   ```
+
+5. 点击 **Deploy**，等待构建完成后，将应用链接发给组员。
+
+不要把真实API Key写进仓库、`.env.example`、README、聊天或截图。公开应用的所有AI
+请求都会消耗部署者的API额度；只供小组使用时，建议使用私有分享，或在演示结束后移除
+Secret。没有配置API Key时，云端应用仍可使用本地检索模式。
+
 ## 中文 Windows 快速开始（推荐）
 
 ### 1. 下载并解压项目
