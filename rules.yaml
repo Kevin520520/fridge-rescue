@@ -257,3 +257,4 @@ substitutions:
     allowed_contexts:
       - binding
     warning: Not a general replacement for omelettes or egg-based dishes.
+
