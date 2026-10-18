@@ -8,3 +8,8 @@ __pycache__/
 .streamlit/secrets.toml
 .DS_Store
 Thumbs.db
+data/raw/
+data/curated/manifest.csv
+data/curated/qa_sample.csv
+data/curated/DATA_CARD.md
+data/curated/curation_summary.json
