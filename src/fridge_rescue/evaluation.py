@@ -1,8 +1,7 @@
-"""Reproducible, offline evaluation for the baseline and agentic pipelines.
+"""Reproducible scoring for baseline and agentic recommendation pipelines.
 
-The evaluation layer is decoupled from OpenAI and LangGraph. Baseline and
-agentic adapters implement ``run(case)`` (or a callable equivalent), allowing
-both systems to share the same scoring code during offline evaluation.
+Runner adapters supply outputs from local or live execution. Both systems use
+the same case format, scoring rules, and report structure for direct comparison.
 """
 
 from __future__ import annotations
@@ -187,7 +186,7 @@ def estimate_token_cost_usd(
 
 
 class EvaluationCase(BaseModel):
-    """One frozen request and optional human-reviewed no-result labels.
+    """One frozen request and optional explicit no-result labels.
 
     ``expected_no_result`` means that no practical answer should be produced
     by *any* arm.  ``expected_corpus_no_result`` is separate because an LLM may
@@ -1614,7 +1613,7 @@ def run_comparison(
     clock: Callable[[], float] = perf_counter,
     metadata: Mapping[str, str | int | float | bool | None] | None = None,
 ) -> ExperimentReport:
-    """Backward-compatible two-arm wrapper for legacy tests and scripts."""
+    """Run the baseline and agentic arms with shared experiment controls."""
 
     return run_multi_arm_comparison(
         cases,
@@ -1654,7 +1653,7 @@ def _parse_optional_bool(raw: str) -> bool | None:
 
 
 def load_cases_csv(path: str | Path) -> list[EvaluationCase]:
-    """Load the CSV case format defined by ``evaluation/cases_template.csv``."""
+    """Load evaluation cases from the project's standard CSV schema."""
 
     cases: list[EvaluationCase] = []
     with Path(path).open("r", encoding="utf-8-sig", newline="") as handle:

@@ -483,7 +483,7 @@ class FridgeRescueWorkflow:
             for note in selection.substitution_notes:
                 if normalize_token(note) not in allowed_notes:
                     errors.append(
-                        f"{selection.recipe_id}: substitution note is not in the reviewed allowlist"
+                        f"{selection.recipe_id}: substitution note is not in the configured allowlist"
                     )
 
         feasible_records = [records[recipe_id] for recipe_id in feasible_ids]

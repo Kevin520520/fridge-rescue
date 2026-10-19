@@ -61,8 +61,8 @@ REQUIRED_COLUMNS = frozenset(
     }
 )
 
-# These columns belonged to the quantity reconstruction used before Curation v3.
-# Their presence would make it unclear whether displayed units came from the source.
+# These columns indicate reconstructed quantities rather than source-preserved units.
+# Their presence would make the displayed quantities and units ambiguous.
 DISALLOWED_SPLIT_QUANTITY_COLUMNS = frozenset(
     {
         "ingredients_original",
@@ -96,8 +96,8 @@ _UNIT_AT_START = re.compile(
     re.IGNORECASE,
 )
 
-# These are high-precision indicators that a source "ingredient" line is probably
-# equipment or a non-food supply. They are review flags, not automatic deletions.
+# These patterns flag probable equipment or non-food supplies for inspection.
+# They do not delete records automatically.
 _EQUIPMENT_MARKERS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (name, re.compile(pattern, re.IGNORECASE))
     for name, pattern in (

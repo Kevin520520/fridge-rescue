@@ -19,7 +19,6 @@ Thumbs.db
 
 # The 26.6 MB pinned source is reproducible and is downloaded on demand.
 data/raw/*
-!data/raw/.gitkeep
 !data/raw/source_metadata.json
 !data/raw/source_schema.json
 

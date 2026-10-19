@@ -34,7 +34,7 @@ def sha256(path: Path) -> str:
 
 
 def validate_source_file(path: Path) -> tuple[int, str]:
-    """Require the reviewed byte length and digest before accepting a source file."""
+    """Require the pinned byte length and digest before accepting a source file."""
 
     if not path.is_file():
         raise FileNotFoundError(path)

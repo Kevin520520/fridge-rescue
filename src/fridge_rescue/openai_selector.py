@@ -207,7 +207,7 @@ class ResponsesRecommendationSelector:
             unexpected_notes = set(selection.substitution_notes) - allowed_notes
             if unexpected_notes:
                 raise RecommendationSelectorOutputError(
-                    "Structured output included substitution notes outside the reviewed allowlist"
+                    "Structured output included substitution notes outside the configured allowlist"
                 )
 
     def select(

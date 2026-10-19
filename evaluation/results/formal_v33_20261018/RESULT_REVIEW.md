@@ -9,4 +9,4 @@ Metrics are pooled over every saved run. Automatic text screens are diagnostics 
 | baseline_a | 60 | 0 | 1.000 | 1.000 | 0.982 | 3963.6 | 45714/38461 | n/a |
 | agentic | 60 | 0 | 0.950 | 1.000 | 0.833 | 1296.7 | 77424/8094 | n/a |
 
-Use `case_comparison.csv` to inspect repeated failures, constraint flags, retrieval quality and selection regret before changing code.
+`case_comparison.csv` contains repeated failures, constraint flags, retrieval quality, and selection-regret details.

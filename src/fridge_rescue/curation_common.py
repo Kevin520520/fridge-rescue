@@ -68,7 +68,7 @@ def infer_equipment(
     rules: Mapping[str, Sequence[str]],
     exclusion_phrases: Mapping[str, Sequence[str]] | None = None,
 ) -> list[str]:
-    """Infer reviewed equipment tags from recipe text."""
+    """Infer equipment tags from configured recipe-text markers."""
 
     searchable = " ".join(text_parts)
     exclusions = exclusion_phrases or {}
@@ -83,7 +83,7 @@ def infer_equipment(
 def scope_exclusion_reason(
     text_parts: Sequence[str], markers: Mapping[str, Sequence[str]]
 ) -> str | None:
-    """Return a reviewed out-of-scope reason when a marker matches."""
+    """Return an out-of-scope reason when a configured marker matches."""
 
     searchable = " ".join(text_parts)
     for scope, phrases in markers.items():
@@ -99,7 +99,7 @@ def infer_diet_status(
     preference: Literal["vegetarian", "vegan"],
     conflict_markers: Mapping[str, Sequence[str]],
 ) -> DietStatus:
-    """Infer only reviewed vegetarian or vegan states from source text."""
+    """Infer vegetarian or vegan states from configured source-text markers."""
 
     markers = conflict_markers.get(preference, ())
     if contains_any_phrase(" ".join(ingredients), markers):
@@ -116,7 +116,7 @@ def infer_diet_status(
 
 
 def broad_category(title: str, category: str, keywords: Sequence[str]) -> str:
-    """Map source categories and reviewed text markers to broad strata."""
+    """Map source categories and configured text markers to broad strata."""
 
     normalized_title = normalize_token(title)
     if "rendered" in normalized_title and "fat" in normalized_title:

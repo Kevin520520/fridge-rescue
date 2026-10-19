@@ -417,7 +417,7 @@ def _display_recipe(
                 "Curated from the CC BY-SA 3.0 Food Ingredients and Recipe Dataset with Images."
             )
             if substitution_notes:
-                st.markdown("**Reviewed substitution notes**")
+                st.markdown("**Allowed substitution notes**")
                 for note in substitution_notes:
                     st.markdown(f"- {note}")
 

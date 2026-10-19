@@ -109,7 +109,7 @@ class CorpusReader(Protocol):
 
 @dataclass(frozen=True)
 class RetrievalRules:
-    """Reviewed normalization and safety rules used during retrieval."""
+    """Configured normalization and safety rules used during retrieval."""
 
     pantry_staples: tuple[str, ...] = ()
     ingredient_aliases: Mapping[str, str] | None = None
@@ -243,7 +243,7 @@ def _canonical_term(value: str, aliases: Mapping[str, str]) -> str:
 
 
 def _is_word_character(value: str) -> bool:
-    r"""Mirror the ``\w`` boundary used by the previous regular expressions."""
+    r"""Return whether a character follows Python's ``\w`` boundary semantics."""
 
     return value == "_" or value.isalnum()
 
@@ -289,7 +289,7 @@ def _normalized_terms_overlap(first: str, second: str) -> bool:
 
 
 def _terms_overlap(first: str, second: str) -> bool:
-    """Allow reviewed canonical terms to match a more specific ingredient phrase."""
+    """Allow configured canonical terms to match a specific ingredient phrase."""
 
     return _normalized_terms_overlap(normalize_token(first), normalize_token(second))
 

@@ -8,8 +8,8 @@ a new blind test.
 
 ## Release changes under test
 
-- Matched ingredient words or phrases are highlighted inline; the full source
-  line and the former `In your fridge` badge are no longer highlighted.
+- Matched ingredient words or phrases are highlighted inline; full source lines
+  and additional match badges are not highlighted.
 - Deterministic ranking now states and applies the exact priority order:
   maximize user-input utilization, then minimize missing non-pantry ingredient
   lines, then maximize recipe-side coverage.
@@ -57,7 +57,9 @@ correctly return no result.
 
 ## Release decision
 
-No code or evaluated configuration was changed after the formal run. The
+No runtime logic or evaluated configuration changed after the formal run.
+Later cleanup removed generated files and rewrote comments or docstrings only;
+the frozen hashes continue to identify the exact evaluated snapshot. The
 complete local run retains the three repetition-level attempt logs. The compact
 public release keeps the frozen inputs, hashes, aggregate report, and case
 comparison needed to review the authoritative v3.3 results without publishing

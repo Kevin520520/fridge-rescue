@@ -47,7 +47,7 @@ ingredient_aliases:
   peaches: peach
   pears: pear
 
-  # Reviewed Chinese UI aliases. Values use canonical English terms that
+  # Chinese UI aliases map to canonical English terms that
   # occur in the curated corpus so all three application modes receive the
   # same reproducible UserRequest.
   鸡蛋: egg
@@ -490,8 +490,8 @@ reviewed_source_exclusions:
   - 12476
   - 12525
   - 12943
-  # Independent unit/realism audit: confirmed source rows retained as an
-  # explicit evidence-backed backstop even where a general rule also applies.
+  # Confirmed unit and realism exclusions remain explicit even when a general
+  # rule also rejects the same source row.
   - 468
   - 4810
   - 6243
@@ -499,14 +499,14 @@ reviewed_source_exclusions:
   - 8609
   - 10967
   - 11582
-  # Equipment-only source lines found after deterministic resampling.
+  # Source rows containing equipment-only ingredient lines.
   - 4257
   - 11860
   - 12164
-  # Equipment-only source line found after deterministic resampling.
+  # Source row containing an equipment-only ingredient line.
   - 7077
-  # Source-line audit exclusions: equipment, external prepared components,
-  # metadata, malformed conversions, and text corruption.
+  # Source rows containing equipment, external prepared components, metadata,
+  # malformed conversions, or text corruption.
   - 497
   - 547
   - 1385
@@ -556,7 +556,7 @@ reviewed_source_exclusions:
   - 12484
   - 12508
   - 12514
-  # Equipment lines found in deterministic replacement rows.
+  # Source rows containing equipment in ingredient fields.
   - 9939
   - 12720
   # Confirmed incomplete or internally inconsistent quantities.
@@ -568,18 +568,18 @@ reviewed_source_exclusions:
   # Shopping prose stored as ingredient lines.
   - 2279
   - 7627
-  # Extended source scan: spurious quantities, a concatenated ingredient,
-  # and an equipment-only jars/containers line.
+  # Source rows containing spurious quantities, concatenated ingredients, or
+  # equipment-only container lines.
   - 4892
   - 7402
   - 9785
-  # Replacement-row audit exclusions.
+  # Source rows excluded for the documented ingredient defects.
   - 2112
   - 3436
   - 8831
   - 11268
-  # Full-pass audit exclusions: source quantity grammar, required external
-  # components, standalone equipment, and instruction-field metadata.
+  # Source rows with invalid quantity grammar, required external components,
+  # standalone equipment, or instruction-field metadata.
   - 1423
   - 1435
   - 1547
@@ -622,8 +622,8 @@ reviewed_source_exclusions:
   - 7324
   - 7544
   - 11905
-  # Full-field audit exclusions: objective metadata, quantity,
-  # OCR, spacing, delimiter, and text-integrity defects.
+  # Source rows with metadata, quantity, OCR, spacing, delimiter, or
+  # text-integrity defects.
   - 181
   - 365
   - 489
@@ -843,11 +843,11 @@ reviewed_source_exclusions:
   - 13201
   - 13458
   - 13465
-  # Replacement rows with inconsistent mixed-number unit grammar and
-  # a joined fraction inside a procedural step.
+  # Source rows with inconsistent mixed-number unit grammar or a joined
+  # fraction inside a procedural step.
   - 4483
   - 5649
-  # Source rows with objective OCR/token corruption, malformed quantities,
+  # Source rows with OCR/token corruption, malformed quantities,
   # non-recipe metadata or equipment, truncated text, or unresolved components.
   - 75
   - 84
@@ -945,9 +945,8 @@ reviewed_source_exclusions:
   - 13291
   - 13394
   - 13491
-  # Release-gate exclusions found in replacement rows: external components,
-  # equipment or metadata, token corruption,
-  # concatenated fields, and one inconsistent cup/fluid-ounce conversion.
+  # Source rows with external components, equipment or metadata, token
+  # corruption, concatenated fields, or inconsistent unit conversion.
   - 140
   - 274
   - 1009
@@ -981,12 +980,12 @@ reviewed_source_exclusions:
   - 9097
   - 11314
   - 13214
-  # Replacement row with equipment stored as an ingredient line.
+  # Equipment stored as an ingredient line.
   - 2543
-  # Replacement row with canning equipment stored as an ingredient.
+  # Canning equipment stored as an ingredient line.
   - 11294
-  # Replacement row with a required external cake plus baking tins in
-  # the ingredient field, with no self-contained base-cake recipe.
+  # A required external cake and baking tins appear in the ingredient field
+  # without a self-contained base-cake recipe.
   - 1955
   # Fraction and unit glued together in a procedural step.
   - 619

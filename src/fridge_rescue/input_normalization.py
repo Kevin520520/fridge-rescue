@@ -1,4 +1,4 @@
-"""Deterministic parsing and reviewed bilingual normalization for UI input."""
+"""Deterministic parsing and configured bilingual normalization for UI input."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ _CJK_PATTERN = re.compile(r"[\u3400-\u4DBF\u4E00-\u9FFF]")
 
 
 class UnsupportedChineseIngredientError(ValueError):
-    """Raised when Chinese input has no reviewed deterministic translation."""
+    """Raised when Chinese input has no configured deterministic translation."""
 
     def __init__(self, ingredients: list[str]) -> None:
         self.ingredients = tuple(ingredients)
@@ -39,11 +39,11 @@ def _normalized_aliases(aliases: Mapping[str, str]) -> dict[str, str]:
 
 
 def parse_ingredient_text(text: str, aliases: Mapping[str, str]) -> list[str]:
-    """Split UI text and map reviewed aliases to canonical English terms.
+    """Split UI text and map configured aliases to canonical English terms.
 
     English comma, Chinese comma, enumeration comma, semicolon, and line
     breaks are accepted as separators. Chinese terms are supported only when
-    they have an exact reviewed mapping; unknown English terms remain valid.
+    they have an exact configured mapping; unknown English terms remain valid.
     """
 
     normalized_text = unicodedata.normalize("NFKC", text)

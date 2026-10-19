@@ -1,4 +1,4 @@
-"""Deterministic parsing and curation helpers for the reviewed Epicurious CSV."""
+"""Deterministic parsing and curation helpers for the pinned Epicurious CSV."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ REQUIRED_COLUMNS = frozenset(
     {"", "Title", "Ingredients", "Instructions", "Image_Name", "Cleaned_Ingredients"}
 )
 
-# These phrases are intentionally narrow. Project rules may add more reviewed phrases.
+# These default phrases are intentionally narrow; project rules may add more.
 DEFAULT_SCOPE_EXCLUSION_MARKERS: dict[str, tuple[str, ...]] = {
     "non_food": (
         "snowdrop",
@@ -420,7 +420,7 @@ _EQUIPMENT_LINE_START = re.compile(
     re.IGNORECASE,
 )
 
-# Source-wide equipment screening is intentionally anchored to a reviewed head
+# Source-wide equipment screening is anchored to a configured equipment head
 # noun.  The words before that head may describe only count, size, shape, or
 # material.  This avoids treating food as equipment merely because a later
 # preparation note names a tool (for example, thyme tied with kitchen twine).
@@ -754,7 +754,7 @@ def ingredient_line_rejection_reason(line: str) -> str | None:
     # A complete measured ingredient may legitimately contain a parenthetical
     # shopping note (for example, "2 bay leaves ... if only dried leaves are
     # available").  A stray digit inside standalone purchase prose is not a
-    # measurement, so the decision uses the same reviewed prefix detector as
+    # measurement, so the decision uses the same measured-prefix detector as
     # the coverage calculation instead of merely looking for any digit.
     if _PURCHASE_NOTE.search(line) and not _MEASURED_PREFIX.search(line):
         return "metadata_or_narrative"
@@ -844,7 +844,7 @@ def is_unexpanded_subrecipe_reference(
 
     # A bare ``see below`` is not sufficient evidence: some records expand the
     # component inside the same ingredient list and instructions (source 4249
-    # is a reviewed example).  Implicit links instead require a distinctive,
+    # is an example). Implicit links instead require a distinctive,
     # title-cased component name that exactly matches another source recipe.
     # Explicit retail alternatives remain usable inputs and are not rejected
     # merely because a similarly named recipe also exists in the corpus.
@@ -894,7 +894,7 @@ def _compiled_aliases(
 def _alias_lines_for_screening(
     lines: Sequence[str], aliases: Mapping[str, str] | None
 ) -> list[str]:
-    """Apply reviewed aliases only to an internal inference copy of source lines."""
+    """Apply configured aliases only to an internal inference copy of source lines."""
 
     normalized_aliases = tuple(
         sorted(
@@ -949,7 +949,7 @@ def complexity_bucket(ingredient_count: int, instruction_count: int) -> str:
 
 
 def source_row_hash(row: Mapping[str, Any]) -> str:
-    """Hash all reviewed CSV fields so a curated row can be traced to source bytes."""
+    """Hash all source CSV fields so a curated row can be traced to source bytes."""
 
     return stable_hash({name: row.get(name) for name in sorted(REQUIRED_COLUMNS)})
 

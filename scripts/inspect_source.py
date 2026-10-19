@@ -1,4 +1,4 @@
-"""Profile the reviewed Epicurious CSV before corpus curation."""
+"""Profile the pinned Epicurious CSV before corpus curation."""
 
 from __future__ import annotations
 

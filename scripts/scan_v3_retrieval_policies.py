@@ -1,7 +1,7 @@
 """Compare retrieval admission policies over the frozen v3 case files.
 
 This is an offline diagnostic: it never calls an external model.  Candidate
-relevance is measured with the same reviewed ingredient aliases and pantry
+relevance is measured with the same configured ingredient aliases and pantry
 rules as the application.  A candidate is labelled low-input-relevance when it
 uses less than half of the non-pantry ingredients supplied by the user.  The
 report separately counts candidates below 25% recipe coverage and candidates

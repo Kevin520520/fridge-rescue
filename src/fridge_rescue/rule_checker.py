@@ -56,7 +56,7 @@ def _compiled_phrase_pattern(normalized_phrase: str) -> re.Pattern[str]:
 
 
 def contains_phrase(text: str, phrase: str) -> bool:
-    """Match a reviewed phrase on word boundaries, avoiding egg/eggplant mistakes."""
+    """Match a phrase on word boundaries, avoiding egg/eggplant mistakes."""
 
     normalized_text = normalize_token(text)
     normalized_phrase = normalize_token(phrase)
@@ -64,7 +64,7 @@ def contains_phrase(text: str, phrase: str) -> bool:
 
 
 def contains_any_phrase(text: str, phrases: Iterable[str]) -> bool:
-    """Match any reviewed phrase while normalizing the text only once."""
+    """Match any configured phrase while normalizing the text only once."""
 
     normalized_text = normalize_token(text)
     return any(
@@ -90,7 +90,7 @@ def canonicalize_ingredient(
     value: str,
     aliases: Mapping[str, str] | None = None,
 ) -> str:
-    """Apply reviewed ingredient aliases to a normalized term or full line."""
+    """Apply configured ingredient aliases to a normalized term or full line."""
 
     normalized = normalize_token(value)
     items = tuple(
@@ -110,7 +110,7 @@ def canonicalize_ingredient(
 
 
 def ingredient_terms_are_non_equivalent(first: str, second: str) -> bool:
-    """Return true for a reviewed general-item/processed-product mismatch."""
+    """Return true for a configured general-item/processed-product mismatch."""
 
     normalized_first = normalize_token(first)
     normalized_second = normalize_token(second)
@@ -127,7 +127,7 @@ def ingredient_terms_are_non_equivalent(first: str, second: str) -> bool:
 
 
 def ingredient_terms_overlap(first: str, second: str) -> bool:
-    """Match ingredient phrases while rejecting reviewed false equivalences."""
+    """Match ingredient phrases while rejecting configured false equivalences."""
 
     if ingredient_terms_are_non_equivalent(first, second):
         return False
@@ -140,7 +140,7 @@ def find_excluded_matches(
     allergen_aliases: dict[str, list[str]] | None = None,
     ingredient_aliases: Mapping[str, str] | None = None,
 ) -> set[str]:
-    """Return exclusions whose exact normalized term or reviewed alias is present.
+    """Return exclusions whose exact normalized term or configured alias is present.
 
     This is a text risk screen, not a medical allergy guarantee.
     """
