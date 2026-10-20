@@ -595,6 +595,30 @@ class FridgeRescueWorkflow:
                 )
         return errors
 
+    def _deterministic_fallback_draft(
+        self, state: AgentWorkflowState
+    ) -> LLMRecommendation:
+        """Build a safe local result when both model drafts fail validation."""
+
+        request = UserRequest.model_validate(state["request"])
+        feasible_records = [
+            record
+            for record in state.get("candidate_records", [])
+            if not self._hard_constraint_errors(request, record)
+        ]
+        if not feasible_records:
+            return LLMRecommendation(no_result_reason=_public_no_result_reason(request))
+        return LLMRecommendation(
+            selections=[
+                {
+                    "recipe_id": record.recipe_id,
+                    "reason": "Selected by the validated local ranking fallback.",
+                    "substitution_notes": [],
+                }
+                for record in feasible_records[: self.selection_pool_size]
+            ]
+        )
+
     def _hydrate(self, state: AgentWorkflowState) -> list[HydratedRecommendation]:
         draft = state["draft"]
         selected_ids = [selection.recipe_id for selection in draft.selections]
@@ -662,14 +686,41 @@ class FridgeRescueWorkflow:
                 "trace": trace,
             }
             if retry_count >= 1:
+                fallback_draft = self._deterministic_fallback_draft(state)
+                fallback_state: AgentWorkflowState = {
+                    **state,
+                    "draft": fallback_draft,
+                    "selector_error": None,
+                }
+                fallback_recommendations = (
+                    self._hydrate(fallback_state) if fallback_draft.selections else []
+                )
+                fallback_status: OutcomeStatus = (
+                    "success" if fallback_recommendations else "no_result"
+                )
+                fallback_trace = [*trace, "deterministic_fallback"]
                 outcome = WorkflowOutcome(
-                    status="failed_validation",
-                    validation_errors=errors,
+                    status=fallback_status,
+                    recommendations=fallback_recommendations,
+                    no_result_reason=(
+                        _public_no_result_reason(
+                            UserRequest.model_validate(state["request"])
+                        )
+                        if fallback_status == "no_result"
+                        else None
+                    ),
                     retry_count=retry_count,
-                    trace=trace,
+                    trace=fallback_trace,
                     **self._outcome_usage(state),
                 )
-                update.update(outcome_status="failed_validation", outcome=outcome)
+                update.update(
+                    draft=fallback_draft,
+                    validation_passed=True,
+                    validation_errors=[],
+                    outcome_status=fallback_status,
+                    outcome=outcome,
+                    trace=fallback_trace,
+                )
             return update
 
         status: OutcomeStatus = "success" if recommendations else "no_result"

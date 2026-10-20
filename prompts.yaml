@@ -9,6 +9,7 @@ generate_answer:
     input_utilization, prefer the smallest missing_non_pantry_count. At least one
     selection must satisfy both priorities.
     Return concise reasons and only substitutions explicitly supplied by the rule tool.
+    If no supplied substitution applies exactly, return an empty substitution_notes list.
     Never invent recipe names, ingredients, times, instructions, IDs, or safety claims.
 
 repair_answer:
@@ -19,4 +20,5 @@ repair_answer:
     Fix relevance errors by including at least one feasible candidate with the
     highest input_utilization and, among that tie, the smallest
     missing_non_pantry_count.
+    If no supplied substitution applies exactly, return an empty substitution_notes list.
     If no valid candidate remains, return an empty selection and a clear no-result reason.

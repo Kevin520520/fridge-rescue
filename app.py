@@ -466,7 +466,9 @@ def _display_workflow_outcome(
             "The AI recommendation service is temporarily unavailable. Please try again later."
         )
     else:
-        st.error("The result did not pass the safety checks. Adjust the request and try again.")
+        st.error(
+            "The AI selection could not be validated. Please try again or use Local retrieval."
+        )
 
 
 def _display_baseline_outcome(

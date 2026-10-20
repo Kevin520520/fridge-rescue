@@ -18,7 +18,8 @@ experiment outputs are not included in this public runtime repository.
 - **Local retrieval** — searches the prepared corpus without calling an external model.
 - **Single-prompt** — asks the configured model to generate recipes in one call.
 - **Agentic workflow** — retrieves local candidates, lets the model select recipe IDs,
-  validates the selection and displays the original corpus quantities and instructions.
+  validates the selection and displays the original corpus quantities and instructions. If
+  both model drafts fail validation, it safely falls back to the validated local ranking.
 
 The interface accepts common English and supported Chinese ingredient names. Matched
 ingredients are highlighted in the returned recipe cards.

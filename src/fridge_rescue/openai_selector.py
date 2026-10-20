@@ -196,19 +196,29 @@ class ResponsesRecommendationSelector:
         self,
         recommendation: LLMRecommendation,
         candidates: Sequence[RecipeRecord],
-    ) -> None:
+    ) -> LLMRecommendation:
+        """Reject unknown IDs and remove substitution notes outside the allowlist."""
+
         candidate_ids = {record.recipe_id for record in candidates}
         allowed_notes = set(self.allowed_substitution_notes)
+        filtered_selections = []
         for selection in recommendation.selections:
             if selection.recipe_id not in candidate_ids:
                 raise RecommendationSelectorOutputError(
                     f"Structured output selected a non-candidate ID: {selection.recipe_id}"
                 )
-            unexpected_notes = set(selection.substitution_notes) - allowed_notes
-            if unexpected_notes:
-                raise RecommendationSelectorOutputError(
-                    "Structured output included substitution notes outside the configured allowlist"
+            filtered_selections.append(
+                selection.model_copy(
+                    update={
+                        "substitution_notes": [
+                            note
+                            for note in selection.substitution_notes
+                            if note in allowed_notes
+                        ]
+                    }
                 )
+            )
+        return recommendation.model_copy(update={"selections": filtered_selections})
 
     def select(
         self,
@@ -265,5 +275,4 @@ class ResponsesRecommendationSelector:
                 f"{self.provider_name} returned invalid structured output"
             ) from exc
 
-        self._enforce_dynamic_allowlists(recommendation, candidates)
-        return recommendation
+        return self._enforce_dynamic_allowlists(recommendation, candidates)
