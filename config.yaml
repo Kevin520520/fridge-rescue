@@ -10,11 +10,3 @@ retrieval:
   max_missing_ingredients: 7
   rescue_minimum_coverage: 0.15
   rescue_max_missing_ingredients: 8
-
-workflow:
-  max_repairs: 1
-
-evaluation:
-  development_cases: 24
-  final_cases: 20
-  blind_review_cases: 8

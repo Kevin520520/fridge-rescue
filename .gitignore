@@ -17,24 +17,12 @@ scripts/live_smoke.py
 .DS_Store
 Thumbs.db
 
-# The 26.6 MB pinned source is reproducible and is downloaded on demand.
+# The pinned raw source and rebuild-only outputs are generated on demand.
 data/raw/*
-!data/raw/source_metadata.json
-!data/raw/source_schema.json
+data/curated/audits/
+data/curated/CURATION_AUDIT_TRAIL.md
 
-# Publish only the current compact release evidence, not repetition-level API logs.
-evaluation/results/*
-!evaluation/results/README.md
-!evaluation/results/formal_v33_20261018/
-evaluation/results/formal_v33_20261018/*
-!evaluation/results/formal_v33_20261018/ANALYSIS.md
-!evaluation/results/formal_v33_20261018/RESULT_REVIEW.md
-!evaluation/results/formal_v33_20261018/aggregate_report.json
-!evaluation/results/formal_v33_20261018/aggregate_summary.csv
-!evaluation/results/formal_v33_20261018/case_comparison.csv
-!evaluation/results/formal_v33_20261018/frozen_cases.csv
-!evaluation/results/formal_v33_20261018/frozen_config.yaml
-!evaluation/results/formal_v33_20261018/frozen_curation_summary.json
-!evaluation/results/formal_v33_20261018/frozen_prompts.yaml
-!evaluation/results/formal_v33_20261018/run_config.json
-!evaluation/results/formal_v33_20261018/source_manifest.json
+# Keep the public repository focused on the runnable application and data pipeline.
+evaluation/
+presentation/
+docs/

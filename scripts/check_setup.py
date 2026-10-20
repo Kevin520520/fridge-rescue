@@ -41,7 +41,7 @@ CURATED_CORPUS_NAME = "recipes_2000.parquet"
 EXPECTED_CURATED_ROWS = 2_000
 EXPECTED_CURATION_VERSION = CURATION_VERSION
 EXPECTED_CURATED_OUTPUTS = frozenset(
-    {CURATED_CORPUS_NAME, "manifest.csv", "qa_sample.csv", "DATA_CARD.md"}
+    {CURATED_CORPUS_NAME, "DATA_CARD.md"}
 )
 
 
@@ -77,7 +77,9 @@ def load_source_metadata(path: Path) -> tuple[dict[str, Any] | None, str | None]
     return metadata, None
 
 
-def validate_curated_corpus(corpus: Path, summary_path: Path) -> tuple[bool, str]:
+def validate_curated_corpus(
+    corpus: Path, summary_path: Path, rules_path: Path
+) -> tuple[bool, str]:
     """Verify the packaged 2,000-recipe corpus against its curation record."""
 
     if not corpus.is_file():
@@ -112,6 +114,14 @@ def validate_curated_corpus(corpus: Path, summary_path: Path) -> tuple[bool, str
             f"{summary_path.name} curation_version must be "
             f"{EXPECTED_CURATION_VERSION}; got {summary.get('curation_version')!r}"
         )
+
+    if not rules_path.is_file():
+        return False, f"curation rules not found: {rules_path}"
+    recorded_rules_sha = summary.get("curation_rules_sha256")
+    if not isinstance(recorded_rules_sha, str) or not recorded_rules_sha.strip():
+        return False, f"{summary_path.name} has no curation_rules_sha256"
+    if sha256(rules_path).casefold() != recorded_rules_sha.strip().casefold():
+        return False, "rules.yaml does not match the curated release metadata"
 
     output_hashes = summary.get("output_sha256")
     if not isinstance(output_hashes, dict):
@@ -189,34 +199,6 @@ def validate_curated_corpus(corpus: Path, summary_path: Path) -> tuple[bool, str
     if any(row["source_license"] != SOURCE_LICENSE for row in corpus_rows):
         return False, "curated corpus does not preserve the pinned source license"
 
-    manifest_path = output_dir / "manifest.csv"
-    qa_path = output_dir / "qa_sample.csv"
-    try:
-        with manifest_path.open(encoding="utf-8-sig", newline="") as source:
-            manifest_rows = list(csv.DictReader(source))
-        with qa_path.open(encoding="utf-8-sig", newline="") as source:
-            qa_rows = list(csv.DictReader(source))
-    except (OSError, csv.Error) as error:
-        return False, f"curated CSV artifact is unreadable: {error}"
-
-    if len(manifest_rows) != EXPECTED_CURATED_ROWS:
-        return False, f"manifest must contain {EXPECTED_CURATED_ROWS:,} rows"
-    manifest_by_id = {row.get("recipe_id", ""): row for row in manifest_rows}
-    if len(manifest_by_id) != EXPECTED_CURATED_ROWS or set(manifest_by_id) != set(corpus_ids):
-        return False, "manifest recipe IDs do not match the curated corpus"
-    for row in corpus_rows:
-        manifest_row = manifest_by_id[str(row["recipe_id"])]
-        if manifest_row.get("record_hash") != row["record_hash"]:
-            return False, f"manifest record_hash mismatch for recipe {row['recipe_id']}"
-        if manifest_row.get("dedup_hash") != row["dedup_hash"]:
-            return False, f"manifest dedup_hash mismatch for recipe {row['recipe_id']}"
-
-    qa_ids = [row.get("recipe_id", "") for row in qa_rows]
-    if len(qa_ids) != 30 or len(set(qa_ids)) != 30:
-        return False, "QA sample must contain 30 unique recipe IDs"
-    if not set(qa_ids).issubset(set(corpus_ids)):
-        return False, "QA sample contains recipe IDs outside the curated corpus"
-
     expected_distribution = summary.get("strata_selected")
     actual_distribution = Counter(
         f"{row['category_group']}|{row['complexity_bucket']}" for row in corpus_rows
@@ -225,8 +207,8 @@ def validate_curated_corpus(corpus: Path, summary_path: Path) -> tuple[bool, str
         return False, "curated corpus strata do not match curation_summary.json"
 
     return True, (
-        f"{corpus.name}; {row_count:,} rows; package hashes, manifest, QA sample, "
-        "source provenance and strata verified"
+        f"{corpus.name}; {row_count:,} rows; package hashes, schema, source "
+        "provenance and strata verified"
     )
 
 
@@ -332,6 +314,7 @@ def run_checks(*, check_rebuild: bool = False, project_root: Path | None = None)
     curated_ok, curated_detail = validate_curated_corpus(
         root / "data" / "curated" / CURATED_CORPUS_NAME,
         root / "data" / "curated" / "curation_summary.json",
+        root / "rules.yaml",
     )
     checks.append(status(curated_ok, "Curated recipe corpus", curated_detail))
 

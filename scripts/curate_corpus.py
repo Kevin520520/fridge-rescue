@@ -326,19 +326,6 @@ def sample_eligible(
     return selected
 
 
-def write_csv_atomic(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    try:
-        with temporary.open("w", encoding="utf-8-sig", newline="") as output:
-            writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(rows)
-        temporary.replace(path)
-    except Exception:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
 def write_text_atomic(path: Path, content: str) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     try:
@@ -366,67 +353,6 @@ def write_parquet_atomic(path: Path, records: list[dict[str, Any]]) -> None:
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
-
-
-def stable_qa_sample(records: list[dict[str, Any]], size: int = 30) -> list[dict[str, Any]]:
-    """Select a deterministic sample spread across available curation strata."""
-
-    if not records or size <= 0:
-        return []
-    sample_size = min(size, len(records))
-    by_stratum: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in records:
-        stratum = (
-            f"{row.get('category_group', 'other')}|"
-            f"{row.get('complexity_bucket', 'unknown')}"
-        )
-        by_stratum[stratum].append(row)
-    quotas = allocate_sqrt_quotas(
-        Counter({key: len(rows) for key, rows in by_stratum.items()}), sample_size
-    )
-    selected: list[dict[str, Any]] = []
-    for stratum in sorted(by_stratum):
-        ranked = sorted(
-            by_stratum[stratum],
-            key=lambda row: hashlib.sha256(f"qa-v3:{row['recipe_id']}".encode()).hexdigest(),
-        )
-        selected.extend(ranked[: quotas[stratum]])
-    selected.sort(key=lambda row: str(row["recipe_id"]))
-
-    qa_rows: list[dict[str, Any]] = []
-    for row in selected:
-        ingredient_lines = row.get("ingredient_lines_original") or row.get(
-            "ingredients_normalized", []
-        )
-        instructions = row.get("instructions_original", [])
-        qa_rows.append(
-            {
-                "recipe_id": row["recipe_id"],
-                "source_record_id": row.get("source_record_id", ""),
-                "title": row["title"],
-                "category_group": row.get("category_group", "other"),
-                "complexity_bucket": row.get("complexity_bucket", ""),
-                "ingredient_count": len(ingredient_lines),
-                "ingredient_lines_original": " | ".join(ingredient_lines),
-                "instruction_count": len(instructions),
-                "instructions_original": " | ".join(instructions),
-                "measurement_coverage": row.get("measurement_coverage", ""),
-                "removed_non_ingredient_line_count": row.get(
-                    "removed_non_ingredient_line_count", 0
-                ),
-                "quantity_format_correction_count": row.get(
-                    "quantity_format_correction_count", 0
-                ),
-                "equipment_tags_inferred": " | ".join(row.get("equipment_tags_inferred", [])),
-                "vegetarian_status": row.get("vegetarian_status_derived", "unknown"),
-                "vegan_status": row.get("vegan_status_derived", "unknown"),
-                "qa_status": "",
-                "reviewer": "",
-                "reviewed_at": "",
-                "notes": "",
-            }
-        )
-    return qa_rows
 
 
 def write_data_card(
@@ -561,41 +487,6 @@ def main() -> None:
     write_parquet_atomic(corpus_path, selected)
 
     selected_distribution = Counter(_stratum(row) for row in selected)
-    manifest_rows = [
-        {
-            "recipe_id": row["recipe_id"],
-            "source_record_id": row["source_record_id"],
-            "source_row_hash": row["source_row_hash"],
-            "record_hash": row["record_hash"],
-            "dedup_hash": row["dedup_hash"],
-            "category_group": row["category_group"],
-            "complexity_bucket": row["complexity_bucket"],
-            "measurement_coverage": f"{row['measurement_coverage']:.6f}",
-            "removed_non_ingredient_line_count": row[
-                "removed_non_ingredient_line_count"
-            ],
-            "quantity_format_correction_count": row[
-                "quantity_format_correction_count"
-            ],
-            "selection_priority": deterministic_priority(row["recipe_id"], seed),
-            "quality_flags": " | ".join(row["quality_flags"]),
-            "source_dataset": SOURCE_DATASET,
-            "source_url": SOURCE_DATASET_URL,
-            "source_revision": SOURCE_REVISION,
-            "source_sha256": source_sha,
-            "curation_rules_sha256": rules_sha,
-            "license": SOURCE_LICENSE,
-            "curation_version": CURATION_VERSION,
-        }
-        for row in selected
-    ]
-    manifest_path = args.output_dir / "manifest.csv"
-    write_csv_atomic(manifest_path, manifest_rows, list(manifest_rows[0]))
-
-    qa_rows = stable_qa_sample(selected)
-    qa_path = args.output_dir / "qa_sample.csv"
-    write_csv_atomic(qa_path, qa_rows, list(qa_rows[0]))
-
     data_card_path = args.output_dir / "DATA_CARD.md"
     write_data_card(
         data_card_path,
@@ -648,8 +539,6 @@ def main() -> None:
         "curation_rules_sha256": rules_sha,
         "output_sha256": {
             corpus_path.name: file_sha256(corpus_path),
-            manifest_path.name: file_sha256(manifest_path),
-            qa_path.name: file_sha256(qa_path),
             data_card_path.name: file_sha256(data_card_path),
         },
         "elapsed_seconds": round(time.perf_counter() - started, 3),

@@ -12,7 +12,7 @@
 - Curated artifacts: 2000
 - Fixed seed: 6012
 - Curation version: 3.1
-- Curation rules SHA-256: `b1622d52c4aa886c90480cdba384afa85d07a0ef54db402367f38e0ed3a19cc0`
+- Curation rules SHA-256: `52dfcd58860b2f0563d1ffac05534f2774f2045116d6c99c3143899522b1f1d9`
 
 ## Selection and cleaning
 

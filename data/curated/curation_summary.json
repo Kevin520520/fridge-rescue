@@ -158,12 +158,10 @@
     "vegetable_legume|simple": 38
   },
   "source_sha256": "d0e3977da7c1dc287ed75d6770f4064a7caeaa20ef6f64708b730e02f4d5f17a",
-  "curation_rules_sha256": "b1622d52c4aa886c90480cdba384afa85d07a0ef54db402367f38e0ed3a19cc0",
+  "curation_rules_sha256": "52dfcd58860b2f0563d1ffac05534f2774f2045116d6c99c3143899522b1f1d9",
   "output_sha256": {
     "recipes_2000.parquet": "1fbeeaa09544940884e64dc94a9b3666658a5956790c7f36487f26892371e690",
-    "manifest.csv": "659916b23df92e4828a1c6819f5a09c05fdee617b25a597f4b0e3427c0d9bb8e",
-    "qa_sample.csv": "46c6d530237dad5c9e63443d935328beb9b5420c11f16762217cf5e7f6cbe399",
-    "DATA_CARD.md": "0139486d5bfc6e140356721bab6abfcbdd6cfb978fd3be561ed4fc48cad0e378"
+    "DATA_CARD.md": "ad261cdb619f6728c4cbff05ee9a7cd1e9a3c305ee8d5382d9d67ee0a36dd104"
   },
   "elapsed_seconds": 25.342
 }
