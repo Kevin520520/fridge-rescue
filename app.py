@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,8 @@ from fridge_rescue.retrieval import (
 from fridge_rescue.schemas import RecipeRecord, UserRequest
 from fridge_rescue.settings import PROJECT_ROOT, get_settings
 from fridge_rescue.workflow import FridgeRescueWorkflow, WorkflowOutcome
+
+logger = logging.getLogger(__name__)
 
 APP_TITLE = "Fridge Rescue"
 OFFLINE_MODE = "Offline retrieval preview"
@@ -718,7 +721,8 @@ if submitted:
             st.error(
                 "The single-prompt comparison is temporarily unavailable. Please try again later."
             )
-        except Exception:  # noqa: BLE001 - render a safe request error
+        except Exception:
+            logger.exception("Unhandled recommendation request error")
             st.error(
                 "The recommendation could not be completed. Try again or switch to local retrieval."
             )
