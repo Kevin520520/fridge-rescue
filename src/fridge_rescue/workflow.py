@@ -1,8 +1,8 @@
 """Small, offline-testable LangGraph workflow for Fridge Rescue.
 
-The language-model-facing selector is limited to choosing candidate recipe IDs
-and providing short explanatory text. Recipe facts in the final result are
-loaded from ``RecipeRepository`` after validation.
+The language-model-facing selector is limited to choosing candidate recipe IDs.
+Recipe facts and user-visible explanations are derived from validated local data
+after selection.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ class SequenceSelector:
 
 
 class HydratedRecommendation(BaseModel):
-    """A selected explanation joined to authoritative repository facts."""
+    """A selected recipe joined to authoritative facts and deterministic public text."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -144,6 +144,73 @@ def _unique_ids(values: Sequence[str]) -> list[str]:
             seen.add(recipe_id)
             result.append(recipe_id)
     return result
+
+
+def _natural_language_list(values: Sequence[str]) -> str:
+    """Format normalized ingredient names for user-facing text."""
+
+    cleaned = [" ".join(str(value).replace("_", " ").split()) for value in values]
+    items = list(dict.fromkeys(value for value in cleaned if value))
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+
+def _public_recommendation_reason(
+    record: RecipeRecord,
+    request: UserRequest,
+    pantry_staples: Sequence[str],
+    ingredient_aliases: Mapping[str, str],
+) -> str:
+    """Build a stable explanation without exposing selector fields or metadata."""
+
+    match = ingredient_match_details(
+        record,
+        request.available_ingredients,
+        pantry_staples,
+        ingredient_aliases,
+    )
+    total_requested = len(match.matched_inputs) + len(match.unmatched_inputs)
+    matched_names = _natural_language_list(match.matched_inputs)
+
+    if match.matched_input_count == total_requested == 1:
+        coverage = f"Uses the ingredient you entered: {matched_names}."
+    elif match.matched_input_count == total_requested:
+        coverage = (
+            f"Uses all {total_requested} requested ingredients: {matched_names}."
+        )
+    elif match.matched_input_count:
+        coverage = (
+            f"Uses {match.matched_input_count} of your {total_requested} requested "
+            f"ingredients: {matched_names}."
+        )
+    else:
+        coverage = "This is the closest matching recipe in the curated collection."
+
+    if match.missing_count == 0:
+        shopping = "No additional main ingredients are needed."
+    elif match.missing_count == 1:
+        shopping = "You will need 1 additional ingredient, listed below."
+    else:
+        shopping = (
+            f"You will need {match.missing_count} additional ingredients, listed below."
+        )
+    return f"{coverage} {shopping}"
+
+
+def _public_no_result_reason(request: UserRequest) -> str:
+    """Return a fixed no-result message based only on fields supplied by the user."""
+
+    if request.excluded_ingredients:
+        return (
+            "No suitable recipe was found in the curated collection for these "
+            "ingredients while avoiding the excluded items."
+        )
+    return "No suitable recipe was found in the curated collection for these ingredients."
 
 
 class FridgeRescueWorkflow:
@@ -537,15 +604,20 @@ class FridgeRescueWorkflow:
         missing = [recipe_id for recipe_id in selected_ids if recipe_id not in authoritative]
         if missing:
             raise ValueError(f"Repository could not hydrate selected IDs: {missing}")
+        request = UserRequest.model_validate(state["request"])
         recommendations = [
             HydratedRecommendation(
                 recipe=authoritative[selection.recipe_id],
-                reason=selection.reason,
+                reason=_public_recommendation_reason(
+                    authoritative[selection.recipe_id],
+                    request,
+                    self.pantry_staples,
+                    self.ingredient_aliases,
+                ),
                 substitution_notes=selection.substitution_notes,
             )
             for selection in draft.selections
         ]
-        request = UserRequest.model_validate(state["request"])
         candidate_order = {
             record.recipe_id: index
             for index, record in enumerate(state.get("candidate_records", []))
@@ -600,12 +672,15 @@ class FridgeRescueWorkflow:
                 update.update(outcome_status="failed_validation", outcome=outcome)
             return update
 
-        draft = state["draft"]
         status: OutcomeStatus = "success" if recommendations else "no_result"
         outcome = WorkflowOutcome(
             status=status,
             recommendations=recommendations,
-            no_result_reason=draft.no_result_reason,
+            no_result_reason=(
+                _public_no_result_reason(UserRequest.model_validate(state["request"]))
+                if status == "no_result"
+                else None
+            ),
             retry_count=state.get("retry_count", 0),
             trace=trace,
             **self._outcome_usage(state),
