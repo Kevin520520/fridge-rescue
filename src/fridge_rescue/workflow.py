@@ -622,9 +622,11 @@ class FridgeRescueWorkflow:
     def _hydrate(self, state: AgentWorkflowState) -> list[HydratedRecommendation]:
         draft = state["draft"]
         selected_ids = [selection.recipe_id for selection in draft.selections]
-        authoritative = {
-            record.recipe_id: record for record in self.repository.get_many(selected_ids)
-        }
+        current_records = [
+            RecipeRecord.model_validate(record.model_dump(mode="python"))
+            for record in self.repository.get_many(selected_ids)
+        ]
+        authoritative = {record.recipe_id: record for record in current_records}
         missing = [recipe_id for recipe_id in selected_ids if recipe_id not in authoritative]
         if missing:
             raise ValueError(f"Repository could not hydrate selected IDs: {missing}")
