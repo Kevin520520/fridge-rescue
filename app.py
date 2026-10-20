@@ -327,16 +327,28 @@ def _requested_ingredient_line_highlights(
 ) -> list[tuple[str, ...]]:
     """Return source-side phrases matching ingredients explicitly entered by the user."""
 
-    highlights: list[tuple[str, ...]] = []
-    for original_line in recipe.ingredient_lines_original:
-        highlights.append(
-            matched_input_surface_phrases(
-                original_line,
-                request.available_ingredients,
-                ingredient_aliases,
-            )
+    return _requested_text_line_highlights(
+        recipe.ingredient_lines_original,
+        request,
+        ingredient_aliases,
+    )
+
+
+def _requested_text_line_highlights(
+    lines: Sequence[str],
+    request: UserRequest,
+    ingredient_aliases: Mapping[str, str],
+) -> list[tuple[str, ...]]:
+    """Return visible phrases matching ingredients explicitly entered by the user."""
+
+    return [
+        matched_input_surface_phrases(
+            line,
+            request.available_ingredients,
+            ingredient_aliases,
         )
-    return highlights
+        for line in lines
+    ]
 
 
 def _display_recipe(
@@ -459,6 +471,8 @@ def _display_workflow_outcome(
 
 def _display_baseline_outcome(
     outcome: BaselineRecommendation,
+    request: UserRequest,
+    ingredient_aliases: Mapping[str, str],
     *,
     max_recommendations: int,
 ) -> None:
@@ -472,6 +486,11 @@ def _display_baseline_outcome(
         return
 
     for recipe in outcome.recipes[:max_recommendations]:
+        requested_line_highlights = _requested_text_line_highlights(
+            recipe.ingredients,
+            request,
+            ingredient_aliases,
+        )
         with st.container(border=True):
             st.subheader(recipe.title)
             facts = [f"⏱️ {recipe.total_time_minutes} min"]
@@ -484,8 +503,19 @@ def _display_baseline_outcome(
                 ["Ingredients · 食材", "Steps · 步骤", "Source · 来源"]
             )
             with ingredient_tab:
-                for ingredient in recipe.ingredients:
-                    st.text(f"• {ingredient}")
+                for ingredient, highlight_phrases in zip(
+                    recipe.ingredients,
+                    requested_line_highlights,
+                    strict=True,
+                ):
+                    st.markdown(
+                        authoritative_source_line_html(
+                            ingredient,
+                            prefix="•",
+                            highlight_phrases=highlight_phrases,
+                        ),
+                        unsafe_allow_html=True,
+                    )
             with instruction_tab:
                 for step_number, instruction in enumerate(recipe.instructions, start=1):
                     st.text(f"{step_number}. {instruction}")
@@ -645,6 +675,8 @@ if submitted:
                     )
                     _display_baseline_outcome(
                         baseline.generate(request),
+                        request,
+                        ingredient_aliases,
                         max_recommendations=max_recommendations,
                     )
                 else:
