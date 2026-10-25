@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from fridge_rescue.rule_checker import normalize_token
 
@@ -19,6 +19,7 @@ class UnsupportedChineseIngredientError(ValueError):
         self.ingredients = tuple(ingredients)
         joined = "、".join(ingredients)
         super().__init__(
+            f"Unsupported Chinese ingredient names: {joined}. Use English or a supported common Chinese name. / "
             f"暂不支持以下中文食材：{joined}。请改用英文，或使用已支持的常见中文名称。"
         )
 
@@ -66,3 +67,24 @@ def parse_ingredient_text(text: str, aliases: Mapping[str, str]) -> list[str]:
     if unsupported_chinese:
         raise UnsupportedChineseIngredientError(unsupported_chinese)
     return parsed
+
+
+def merge_ingredient_text(
+    existing_text: str, new_ingredients: Sequence[str], aliases: Mapping[str, str]
+) -> str:
+    """Add selected photo ingredients while preserving existing names and aliases."""
+
+    alias_lookup = _normalized_aliases(aliases)
+    existing = _SEPARATOR_PATTERN.split(unicodedata.normalize("NFKC", existing_text))
+    merged: list[str] = []
+    seen: set[str] = set()
+    for raw_name in [*existing, *new_ingredients]:
+        name = " ".join(unicodedata.normalize("NFKC", raw_name).split())
+        if not name:
+            continue
+        normalized = normalize_token(name)
+        canonical = alias_lookup.get(normalized, normalized)
+        if canonical not in seen:
+            seen.add(canonical)
+            merged.append(name)
+    return ", ".join(merged)

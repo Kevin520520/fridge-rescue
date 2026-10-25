@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5.4-mini"
     openai_base_url: str | None = None
+    vision_model: str | None = None
     source_dataset_file: str = "epicurious_recipes.csv"
 
     model_config = SettingsConfigDict(
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
             raise ValueError("DeepSeek base URL must not be blank")
         return value
 
-    @field_validator("openai_base_url")
+    @field_validator("openai_base_url", "vision_model")
     @classmethod
     def normalize_optional_url(cls, value: str | None) -> str | None:
         if value is None:
@@ -89,6 +90,16 @@ class Settings(BaseSettings):
         if self.active_provider == "deepseek":
             return self.deepseek_base_url
         return self.openai_base_url
+
+    @property
+    def active_vision_model(self) -> str:
+        """Reuse the active provider's key with a vision-capable model."""
+
+        if self.vision_model is not None:
+            return self.vision_model
+        if self.active_provider == "deepseek":
+            return "deepseek-flash"
+        return self.openai_model
 
     @property
     def active_key_env_name(self) -> str:

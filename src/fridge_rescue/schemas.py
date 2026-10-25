@@ -52,6 +52,7 @@ class UserRequest(BaseModel):
 
     available_ingredients: list[str] = Field(min_length=1)
     max_time_minutes: int | None = Field(default=None, ge=1, le=1440)
+    allow_estimated_time: bool = True
     excluded_ingredients: list[str] = Field(default_factory=list)
     unavailable_equipment: set[str] = Field(default_factory=set)
     diet_preference: Literal["none", "vegetarian", "vegan"] = "none"
@@ -106,6 +107,9 @@ class RecipeRecord(BaseModel):
     vegetarian_status: Literal["match", "conflict", "unknown"] = "unknown"
     vegan_status: Literal["match", "conflict", "unknown"] = "unknown"
     source_record_id: str
+    estimated_time_minutes: int | None = Field(default=None, ge=1)
+    time_estimate_basis: list[str] = Field(default_factory=list)
+    diet_status_source: Literal["source", "ingredient_rules"] = "source"
 
     @model_validator(mode="after")
     def ingredient_lines_must_be_parallel(self) -> RecipeRecord:
@@ -118,6 +122,14 @@ class RecipeRecord(BaseModel):
                 "ingredient_lines_original and ingredients_normalized must have equal lengths"
             )
         return self
+
+
+def effective_recipe_minutes(recipe: RecipeRecord, request: UserRequest) -> int | None:
+    """Prefer source total time; permit the separately labeled planning estimate."""
+
+    if recipe.total_time_minutes is not None:
+        return recipe.total_time_minutes
+    return recipe.estimated_time_minutes if request.allow_estimated_time else None
 
 
 class SelectedRecipe(BaseModel):

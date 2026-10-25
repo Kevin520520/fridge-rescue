@@ -7,7 +7,7 @@ practical recipe suggestions. The repository is intentionally limited to three t
 2. the reproducible Epicurious data-processing pipeline; and
 3. the prepared 2,000-recipe corpus used directly by the application.
 
-Development tests, formal experiment runners, tuning utilities, presentation files and
+Formal experiment runners, tuning utilities, presentation files and
 experiment outputs are not included in this public runtime repository.
 
 - Live app: <https://fridge-rescue-ai.streamlit.app/>
@@ -23,6 +23,101 @@ experiment outputs are not included in this public runtime repository.
 
 The interface accepts common English and supported Chinese ingredient names. Matched
 ingredients are highlighted in the returned recipe cards.
+Application-owned text uses English or bilingual English/Chinese wording throughout,
+including graph labels, table headers, time-estimate evidence and AI clarification
+questions. Clarification output requires separate English and Chinese fields.
+
+### Cooking filters and natural-language requests
+
+The search panel supports a time budget (30 minutes by default when enabled),
+vegetarian/vegan preferences, ingredient exclusions, and available special equipment.
+Equipment filtering covers the six corpus tags: oven, microwave, blender/food processor,
+slow cooker, grill and waffle iron. Basic pots, pans and a stovetop are assumed available.
+These filters are shared by local retrieval, Agentic recommendations and graph recipe
+queries. The single-prompt comparison receives the same structured request.
+
+Open **Describe your cooking plan · 描述你的烹饪计划** and try:
+
+```text
+有鸡蛋和番茄，30 分钟内，蛋奶素，没有烤箱，不要花生。
+```
+
+Click **解析需求**, review the extracted ingredients and conditions, then click
+**确认并填入**. Ingredients/exclusions merge with existing entries; explicitly stated
+conditions update the editable filters. Unmentioned conditions stay as entered.
+Ambiguous or unsupported constraints produce clarification questions and cannot be
+applied until the description is resolved. Changing the sentence clears its old parse.
+Parsing makes one Structured Output call using the existing provider key; it does
+not run automatically while typing.
+
+The released source has no total-time values and very few explicit diet labels.
+At runtime, `cooking_metadata.py` adds ingredient-rule diet labels and a separate,
+visible **step-based time estimate**, preserving the original source fields. The
+estimate adds stated duration upper bounds (including per-side times and mandatory
+waits) to 10 preparation minutes, 2 minutes per step, and 5 minutes per untimed cooking
+step. Optional storage is excluded. Cards show **步骤估算** and their Source tab lists
+the calculation. Uncheck **包含步骤估算时长** to require a source-provided total time.
+Diet rules check animal markers, plant dairy exceptions, recognized ingredients and
+ambiguous prepared products; unresolved recipes retain an unknown diet status and
+are excluded by a diet filter. These are deterministic supporting rules, not a trained
+prediction model.
+
+### Identify ingredients from multiple photos
+
+Upload 1–5 JPG, PNG or WebP photos (up to 10 MB and 25 megapixels each, 25 MB total), then click
+**Recognize ingredients / 识别食材**. The app shows the identified ingredient types
+with Chinese and English names. Select the names you want and click **Use selected
+ingredients / 使用所选食材** to add them to the ingredient field. Existing entries are
+preserved, and configured English/Chinese aliases are deduplicated across all photos.
+Fridge, vegetable and seasoning photos are sent together in one model call and produce
+one combined list of up to 40 ingredient types. Invalid images must be removed or
+replaced before the batch can run. You can also use
+the photo feature just to read the ingredient names, without searching for recipes.
+
+Recognition uses the active provider's API key and base URL. With the default DeepSeek
+configuration it uses `deepseek-flash`, which supports
+[image input](https://api-docs.deepseek.com/guides/vision/). With OpenAI it uses
+`OPENAI_MODEL`; `VISION_MODEL` can override the image model for either provider.
+The selected model must support image input and Structured Outputs.
+
+Photos are decoded, oriented, resized to at most 1600 pixels per side and re-encoded
+without the original metadata before the recognition request. The app keeps photos and
+recognition results in the user's current session and does not write them to disk.
+Only clicking **Recognize ingredients** sends photos to the provider; changing recipe
+inputs does not trigger another recognition request. Removing or replacing the upload
+clears the previous recognition result. Without an API key, manual ingredient entry
+and local recipe retrieval remain available.
+
+### Ingredient graph and query tools
+
+Open **食材关系图与图查询** to use these local, read-only tools:
+
+- **Recipe paths** traverses ingredient aliases to corpus ingredient/recipe relationships.
+  It can require every queried ingredient and applies the current cooking filters. The
+  graph and table show the matching source ingredient lines and source record IDs.
+- **Co-occurrence** counts distinct recipes containing both foods. Quantity variants
+  with known canonical names are combined; each recipe contributes once per ingredient.
+  Every result includes an example recipe and source ID.
+- **Reviewed substitutions** follows the directional substitution rules in `rules.yaml`,
+  returning their allowed contexts and warnings. Replacement suggestions do not rewrite
+  recipe facts or count as ingredients the user owns.
+
+The graph is built from the 2,000 local recipes plus the existing alias and substitution
+rules. It requires no graph server, extra key or external model call. Co-occurrence is
+an ingredient → recipe ← ingredient traversal over corpus evidence.
+
+The Agentic LangGraph workflow now executes:
+
+```text
+validate_and_normalize → query_ingredient_graph → retrieve_and_rank
+    → generate_answer → validate_answer → [repair_once → validate_answer]
+```
+
+The graph tool limits the candidate IDs before deterministic filtering/ranking; the
+model then selects only from those candidates. The workflow outcome includes the
+graph candidate count, ingredient evidence paths and node trace. Returned recipe cards
+also offer a graph view of why their ingredients match. The domain ingredient graph
+and LangGraph's orchestration graph serve separate roles.
 
 ## Repository contents
 
@@ -90,6 +185,20 @@ notepad .env
 
 Replace the placeholder with your own DeepSeek API key, save the file and restart
 Streamlit. Never commit `.env` or publish a real API key.
+
+The same key enables photo recognition. Existing Streamlit deployments can reuse their
+configured provider secret. No separate vision key is required.
+
+### Run the feature checks
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v
+```
+
+These checks use simulated API responses and in-memory test images. They cover image
+validation, batch merging, structured language parsing, user confirmation, combined
+hard filters, time/diet metadata, graph evidence, Agentic orchestration and recipe retrieval
+without requiring credentials or calling an external service.
 
 ## Prepared dataset
 

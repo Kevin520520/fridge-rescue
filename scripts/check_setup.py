@@ -26,6 +26,7 @@ from fridge_rescue.epicurious_pipeline import (
 from fridge_rescue.settings import PROJECT_ROOT, get_settings
 
 REQUIRED_PACKAGES = {
+    "PIL": "Pillow",
     "pandas": "pandas",
     "pyarrow": "pyarrow",
     "streamlit": "streamlit",

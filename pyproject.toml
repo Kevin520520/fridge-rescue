@@ -12,6 +12,7 @@ dependencies = [
   "langgraph",
   "openai>=3.31,<4",
   "pandas",
+  "Pillow>=10,<13",
   "pyarrow",
   "pydantic>=2",
   "pydantic-settings",

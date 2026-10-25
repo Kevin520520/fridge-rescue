@@ -11,6 +11,16 @@ import streamlit as st
 import yaml
 from pydantic import ValidationError
 
+from fridge_rescue.cooking_constraints import request_from_inputs
+from fridge_rescue.cooking_metadata import COOKING_METADATA_VERSION
+from fridge_rescue.cooking_constraints_ui import (
+    initialize_cooking_inputs, render_cooking_filters, render_natural_language_input,
+)
+from fridge_rescue.ingredient_graph import RecipeIngredientGraph
+from fridge_rescue.ingredient_graph_ui import (
+    render_ingredient_graph_query, render_recipe_graph_evidence,
+)
+from fridge_rescue.image_recognition_ui import render_image_ingredient_input
 from fridge_rescue.baseline import (
     BaselineError,
     BaselineRecommendation,
@@ -19,7 +29,6 @@ from fridge_rescue.baseline import (
 from fridge_rescue.input_normalization import (
     UnsupportedChineseIngredientError,
     contains_chinese,
-    parse_ingredient_text,
 )
 from fridge_rescue.openai_selector import ResponsesRecommendationSelector
 from fridge_rescue.presentation import (
@@ -254,12 +263,15 @@ def _reviewed_substitution_notes(rules: dict[str, Any]) -> list[str]:
 
 
 @st.cache_resource(show_spinner=False)
-def load_offline_runtime() -> tuple[
+def load_offline_runtime(metadata_version: str) -> tuple[
     ParquetRecipeRepository,
     DeterministicRecipeRetriever,
     tuple[str, ...],
     tuple[str, ...],
+    RecipeIngredientGraph,
 ]:
+    """Cache corpus resources by metadata policy version across Streamlit reruns."""
+
     repository = ParquetRecipeRepository()
     retrieval_rules = RetrievalRules.from_yaml()
     retrieval_policy = RetrievalPolicy.from_yaml()
@@ -271,7 +283,11 @@ def load_offline_runtime() -> tuple[
     rules = _load_yaml(PROJECT_ROOT / "rules.yaml")
     reviewed_notes = tuple(_reviewed_substitution_notes(rules))
     pantry_staples = tuple(retrieval_rules.pantry_staples)
-    return repository, retriever, reviewed_notes, pantry_staples
+    ingredient_graph = RecipeIngredientGraph(
+        repository.list_all(), ingredient_aliases=retrieval_rules.ingredient_aliases,
+        substitutions=rules.get("substitutions", {}), pantry_staples=pantry_staples,
+    )
+    return repository, retriever, reviewed_notes, pantry_staples, ingredient_graph
 
 
 def _coverage_summary(
@@ -384,6 +400,12 @@ def _display_recipe(
         facts: list[str] = []
         if recipe.total_time_minutes is not None:
             facts.append(f"⏱️ {recipe.total_time_minutes} min")
+        elif recipe.estimated_time_minutes is not None:
+            facts.append(f"⏱️ About {recipe.estimated_time_minutes} min (step estimate) · 约 {recipe.estimated_time_minutes} 分钟（步骤估算）")
+        if request.diet_preference != "none":
+            diet_label = "Vegan · 纯素" if request.diet_preference == "vegan" else "Vegetarian · 蛋奶素"
+            source = "Ingredient rules · 食材规则判定" if recipe.diet_status_source == "ingredient_rules" else "Source label · 来源标注"
+            facts.append(f"🥬 {diet_label}（{source}）")
         if recipe.rating is not None:
             facts.append(f"⭐ {recipe.rating:.1f}/5")
         facts.append(
@@ -431,6 +453,12 @@ def _display_recipe(
             st.caption(
                 "Curated from the CC BY-SA 3.0 Food Ingredients and Recipe Dataset with Images."
             )
+            if recipe.total_time_minutes is None and recipe.time_estimate_basis:
+                st.markdown("**时长估算依据 · Time estimate**")
+                for basis in recipe.time_estimate_basis:
+                    st.write(basis)
+            if recipe.diet_status_source == "ingredient_rules":
+                st.caption("Diet labels are derived from animal-product markers, recognized ingredients and prepared-food rules in the original ingredient lines. / 饮食标签由原始食材行的动物性成分、已知食材和复合食品规则判定。")
             if substitution_notes:
                 st.markdown("**Allowed substitution notes**")
                 for note in substitution_notes:
@@ -559,7 +587,7 @@ if not corpus_ready:
     st.stop()
 
 try:
-    repository, retriever, reviewed_notes, pantry_staples = load_offline_runtime()
+    repository, retriever, reviewed_notes, pantry_staples, ingredient_graph = load_offline_runtime(COOKING_METADATA_VERSION)
     app_config = _load_yaml(PROJECT_ROOT / "config.yaml")
     candidate_pool_size = int(app_config["retrieval"]["candidate_pool_size"])
     max_recommendations = int(app_config["retrieval"]["max_recommendations"])
@@ -603,19 +631,27 @@ st.markdown(
     '<div class="fr-section-title">What\'s in your fridge?<span class="fr-zh">冰箱里有什么？</span></div>',
     unsafe_allow_html=True,
 )
-with st.form("recipe_request"):
+initialize_cooking_inputs()
+render_image_ingredient_input(settings, retriever.rules.ingredient_aliases or {})
+render_natural_language_input(settings, retriever.rules.ingredient_aliases or {})
+with st.container(border=True):
     ingredients_text = st.text_input(
         "Available ingredients · 可用食材",
         placeholder="e.g. eggs, tomatoes, rice · 例如：鸡蛋、番茄、米饭",
         help="English and Chinese are supported. Separate items with commas, semicolons, or new lines.",
+        key="available_ingredients",
     )
     excluded_text = st.text_input(
         "Ingredients to avoid · 需避开的食材",
         placeholder="e.g. peanuts, milk (optional) · 例如：花生、牛奶",
         help="Enter ingredient names only. Allergy filtering is a precautionary text check.",
+        key="excluded_ingredients",
     )
-    submitted = st.form_submit_button(
+    render_cooking_filters()
+    render_ingredient_graph_query(ingredient_graph, retriever, repository, st.session_state)
+    submitted = st.button(
         "🍽️ Find recipes",
+        key="find_recipes",
         type="primary",
         use_container_width=True,
     )
@@ -623,13 +659,7 @@ with st.form("recipe_request"):
 if submitted:
     try:
         ingredient_aliases = retriever.rules.ingredient_aliases or {}
-        available_ingredients = parse_ingredient_text(ingredients_text, ingredient_aliases)
-        excluded_ingredients = parse_ingredient_text(excluded_text, ingredient_aliases)
-        request = UserRequest(
-            available_ingredients=available_ingredients,
-            excluded_ingredients=excluded_ingredients,
-            max_time_minutes=None,
-        )
+        request = request_from_inputs(st.session_state, ingredient_aliases)
     except UnsupportedChineseIngredientError as error:
         st.error(str(error))
     except ValidationError as error:
@@ -645,7 +675,10 @@ if submitted:
                     unsafe_allow_html=True,
                 )
                 if mode == OFFLINE_MODE:
-                    recipe_ids = retriever.retrieve(request, limit=max_recommendations)
+                    recipe_ids = retriever.retrieve(
+                        request, limit=max_recommendations,
+                        candidate_ids=ingredient_graph.find_recipe_ids(request.available_ingredients),
+                    )
                     recipes = repository.get_many(recipe_ids)
                     if not recipes:
                         st.warning("No recipe matches these ingredients and filters yet.")
@@ -666,6 +699,9 @@ if submitted:
                             ingredient_aliases,
                             reason=reason,
                         )
+                    render_recipe_graph_evidence(
+                        ingredient_graph, recipe_ids, request.available_ingredients, repository
+                    )
                 elif mode == BASELINE_MODE:
                     if settings.active_api_key is None:
                         raise BaselineError("API key is unavailable")
@@ -709,13 +745,20 @@ if submitted:
                         allergen_aliases=retriever.rules.allergen_aliases,
                         ingredient_aliases=retriever.rules.ingredient_aliases,
                         pantry_staples=retriever.rules.pantry_staples,
+                        ingredient_graph=ingredient_graph,
                     )
+                    outcome = workflow.run(request)
                     _display_workflow_outcome(
-                        workflow.run(request),
+                        outcome,
                         request,
                         pantry_staples,
                         ingredient_aliases,
                         max_recommendations=max_recommendations,
+                    )
+                    render_recipe_graph_evidence(
+                        ingredient_graph,
+                        [item.recipe.recipe_id for item in outcome.recommendations],
+                        request.available_ingredients, repository,
                     )
         except BaselineError:
             st.error(

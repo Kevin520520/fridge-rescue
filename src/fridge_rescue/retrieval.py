@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -17,7 +17,7 @@ from fridge_rescue.rule_checker import (
     NON_EQUIVALENT_INGREDIENT_PRODUCTS,
     normalize_token,
 )
-from fridge_rescue.schemas import RecipeRecord, UserRequest
+from fridge_rescue.schemas import RecipeRecord, UserRequest, effective_recipe_minutes
 from fridge_rescue.settings import PROJECT_ROOT
 
 DEFAULT_RULES_PATH = PROJECT_ROOT / "rules.yaml"
@@ -292,6 +292,24 @@ def _terms_overlap(first: str, second: str) -> bool:
     """Allow configured canonical terms to match a specific ingredient phrase."""
 
     return _normalized_terms_overlap(normalize_token(first), normalize_token(second))
+
+
+def canonical_ingredient(value: str, aliases: Mapping[str, str]) -> str:
+    """Shared canonical ingredient identity for retrieval and graph traversal."""
+
+    return _canonical_term(value, aliases)
+
+
+def ingredient_normalizer(aliases: Mapping[str, str]) -> Callable[[str], str]:
+    """Compile an alias vocabulary once for repeated corpus normalization."""
+
+    return _cached_canonicalizer(_normalized_alias_items(aliases)).canonicalize
+
+
+def ingredient_terms_overlap(first: str, second: str) -> bool:
+    """Share exact phrase and non-equivalent-product rules with graph tools."""
+
+    return _terms_overlap(first, second)
 
 
 # These words may describe the quantity, preparation, or serving of a pantry
@@ -733,9 +751,10 @@ class DeterministicRecipeRetriever:
     ) -> bool:
         recipe = prepared.record
         if request.max_time_minutes is not None:
-            if recipe.total_time_minutes is None:
+            minutes = effective_recipe_minutes(recipe, request)
+            if minutes is None:
                 return False
-            if recipe.total_time_minutes > request.max_time_minutes:
+            if minutes > request.max_time_minutes:
                 return False
 
         if recipe.equipment_tags_inferred & request.unavailable_equipment:
@@ -751,7 +770,10 @@ class DeterministicRecipeRetriever:
             return False
         return not (request.diet_preference == "vegan" and recipe.vegan_status != "match")
 
-    def retrieve(self, request: UserRequest, *, limit: int) -> list[str]:
+    def retrieve(
+        self, request: UserRequest, *, limit: int,
+        candidate_ids: Collection[str] | None = None,
+    ) -> list[str]:
         """Return ranked recipe IDs compatible with ``workflow.RecipeRetriever``."""
 
         if limit < 1:
@@ -766,8 +788,11 @@ class DeterministicRecipeRetriever:
         target_inputs = available
         ranked: list[_RankedRecipe] = []
         rescue_ranked: list[_RankedRecipe] = []
+        allowed_ids = set(candidate_ids) if candidate_ids is not None else None
         for prepared in self._prepared_recipes:
             recipe = prepared.record
+            if allowed_ids is not None and recipe.recipe_id not in allowed_ids:
+                continue
             if not self._meets_hard_constraints(request, prepared):
                 continue
             match = _match_details_for_non_pantry(

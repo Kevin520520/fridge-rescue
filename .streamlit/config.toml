@@ -1,3 +1,7 @@
+[server]
+runOnSave = true
+fileWatcherType = "poll"
+
 [theme]
 base = "light"
 primaryColor = "#DF603D"

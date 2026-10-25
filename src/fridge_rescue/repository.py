@@ -10,6 +10,7 @@ from typing import Any
 import pyarrow.parquet as pq
 
 from fridge_rescue.schemas import RecipeRecord
+from fridge_rescue.cooking_metadata import enrich_cooking_metadata
 from fridge_rescue.settings import PROJECT_ROOT
 
 DEFAULT_CURATED_CORPUS_PATH = PROJECT_ROOT / "data" / "curated" / "recipes_2000.parquet"
@@ -43,7 +44,7 @@ def _record_from_row(row: dict[str, Any]) -> RecipeRecord:
         model_field: _none_if_not_finite(row.get(parquet_field))
         for parquet_field, model_field in _COLUMN_MAP.items()
     }
-    return RecipeRecord.model_validate(values)
+    return enrich_cooking_metadata(RecipeRecord.model_validate(values))
 
 
 class ParquetRecipeRepository:

@@ -7,15 +7,16 @@ after selection.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from fridge_rescue.ingredient_graph import RecipeGraphEvidence, RecipeIngredientGraph
 from fridge_rescue.retrieval import ingredient_match_details
 from fridge_rescue.rule_checker import find_excluded_matches, normalize_token
-from fridge_rescue.schemas import LLMRecommendation, RecipeRecord, UserRequest
+from fridge_rescue.schemas import LLMRecommendation, RecipeRecord, UserRequest, effective_recipe_minutes
 from fridge_rescue.selector_errors import SelectorOutputError, SelectorServiceError
 
 
@@ -28,7 +29,9 @@ class RecipeRepository(Protocol):
 class RecipeRetriever(Protocol):
     """Return ranked recipe IDs; it must not invent recipe content."""
 
-    def retrieve(self, request: UserRequest, *, limit: int) -> list[str]: ...
+    def retrieve(
+        self, request: UserRequest, *, limit: int, candidate_ids: Collection[str] | None = None
+    ) -> list[str]: ...
 
 
 class RecommendationSelector(Protocol):
@@ -111,6 +114,8 @@ class WorkflowOutcome(BaseModel):
     trace: list[str] = Field(default_factory=list)
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
+    graph_candidate_count: int = Field(default=0, ge=0)
+    graph_evidence: list[RecipeGraphEvidence] = Field(default_factory=list)
 
 
 class AgentWorkflowState(TypedDict, total=False):
@@ -129,6 +134,8 @@ class AgentWorkflowState(TypedDict, total=False):
     input_tokens: int
     output_tokens: int
     usage_complete: bool
+    graph_candidate_ids: list[str]
+    graph_evidence: list[RecipeGraphEvidence]
 
 
 def _append_trace(state: AgentWorkflowState, node: str) -> list[str]:
@@ -214,7 +221,7 @@ def _public_no_result_reason(request: UserRequest) -> str:
 
 
 class FridgeRescueWorkflow:
-    """Five-node deterministic-control workflow with at most one repair."""
+    """Deterministic graph-tool/retrieval workflow with at most one model repair."""
 
     def __init__(
         self,
@@ -228,6 +235,7 @@ class FridgeRescueWorkflow:
         allergen_aliases: Mapping[str, list[str]] | None = None,
         ingredient_aliases: Mapping[str, str] | None = None,
         pantry_staples: Sequence[str] = (),
+        ingredient_graph: RecipeIngredientGraph | None = None,
     ) -> None:
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
@@ -236,6 +244,7 @@ class FridgeRescueWorkflow:
         self.repository = repository
         self.retriever = retriever
         self.selector = selector
+        self.ingredient_graph = ingredient_graph
         self.top_k = top_k
         self.selection_pool_size = selection_pool_size
         self.allowed_substitution_notes = _unique_ids(list(allowed_substitution_notes))
@@ -256,12 +265,15 @@ class FridgeRescueWorkflow:
         builder.add_node("generate_answer", self._generate_answer)
         builder.add_node("validate_answer", self._validate_answer)
         builder.add_node("repair_once", self._repair_once)
+        if self.ingredient_graph is not None:
+            builder.add_node("query_ingredient_graph", self._query_ingredient_graph)
+            builder.add_edge("query_ingredient_graph", "retrieve_and_rank")
 
         builder.add_edge(START, "validate_and_normalize")
         builder.add_conditional_edges(
             "validate_and_normalize",
             self._after_request_validation,
-            {"continue": "retrieve_and_rank", "end": END},
+            {"continue": "query_ingredient_graph" if self.ingredient_graph is not None else "retrieve_and_rank", "end": END},
         )
         builder.add_conditional_edges(
             "retrieve_and_rank",
@@ -302,12 +314,17 @@ class FridgeRescueWorkflow:
         return WorkflowOutcome.model_validate(final_state["outcome"])
 
     @staticmethod
-    def _outcome_usage(state: AgentWorkflowState) -> dict[str, int | None]:
+    def _outcome_metadata(state: AgentWorkflowState) -> dict[str, object]:
+        graph_metadata = {
+            "graph_candidate_count": len(state.get("graph_candidate_ids", [])),
+            "graph_evidence": state.get("graph_evidence", []),
+        }
         if not state.get("usage_complete", True):
-            return {"input_tokens": None, "output_tokens": None}
+            return {"input_tokens": None, "output_tokens": None, **graph_metadata}
         return {
             "input_tokens": state.get("input_tokens", 0),
             "output_tokens": state.get("output_tokens", 0),
+            **graph_metadata,
         }
 
     def _selector_usage_update(self, state: AgentWorkflowState) -> AgentWorkflowState:
@@ -350,7 +367,7 @@ class FridgeRescueWorkflow:
                 validation_errors=errors,
                 retry_count=state.get("retry_count", 0),
                 trace=trace,
-                **self._outcome_usage(state),
+                **self._outcome_metadata(state),
             )
             return {
                 "validation_passed": False,
@@ -370,9 +387,23 @@ class FridgeRescueWorkflow:
     def _after_request_validation(state: AgentWorkflowState) -> str:
         return "end" if state.get("outcome_status") == "invalid_request" else "continue"
 
+    def _query_ingredient_graph(self, state: AgentWorkflowState) -> AgentWorkflowState:
+        request = UserRequest.model_validate(state["request"])
+        assert self.ingredient_graph is not None
+        return {
+            "graph_candidate_ids": self.ingredient_graph.find_recipe_ids(request.available_ingredients),
+            "trace": _append_trace(state, "query_ingredient_graph"),
+        }
+
     def _retrieve_and_rank(self, state: AgentWorkflowState) -> AgentWorkflowState:
         request = UserRequest.model_validate(state["request"])
-        ranked_ids = _unique_ids(self.retriever.retrieve(request, limit=self.top_k))[: self.top_k]
+        if self.ingredient_graph is not None:
+            retrieved = self.retriever.retrieve(
+                request, limit=self.top_k, candidate_ids=state.get("graph_candidate_ids", [])
+            )
+        else:
+            retrieved = self.retriever.retrieve(request, limit=self.top_k)
+        ranked_ids = _unique_ids(retrieved)[: self.top_k]
         records_by_id = {
             record.recipe_id: record for record in self.repository.get_many(ranked_ids)
         }
@@ -387,13 +418,15 @@ class FridgeRescueWorkflow:
             "candidate_records": candidates,
             "trace": trace,
         }
+        if self.ingredient_graph is not None:
+            update["graph_evidence"] = self.ingredient_graph.explain(candidate_ids, request.available_ingredients)
         if not candidates:
             outcome = WorkflowOutcome(
                 status="no_candidates",
                 no_result_reason="No matching recipes were found in the curated corpus.",
                 retry_count=state.get("retry_count", 0),
                 trace=trace,
-                **self._outcome_usage(state),
+                **self._outcome_metadata({**state, **update}),
             )
             update.update(outcome_status="no_candidates", outcome=outcome)
         return update
@@ -426,7 +459,7 @@ class FridgeRescueWorkflow:
                 status="service_error",
                 retry_count=current_retry_count,
                 trace=trace,
-                **self._outcome_usage(usage_state),
+                **self._outcome_metadata(usage_state),
             )
             return {
                 "selector_error": "The recommendation service is unavailable.",
@@ -455,7 +488,7 @@ class FridgeRescueWorkflow:
                 status="service_error",
                 retry_count=current_retry_count,
                 trace=trace,
-                **self._outcome_usage(usage_state),
+                **self._outcome_metadata(usage_state),
             )
             return {
                 "selector_error": "The recommendation service is unavailable.",
@@ -492,9 +525,10 @@ class FridgeRescueWorkflow:
     def _hard_constraint_errors(self, request: UserRequest, record: RecipeRecord) -> list[str]:
         errors: list[str] = []
         if request.max_time_minutes is not None:
-            if record.total_time_minutes is None:
+            minutes = effective_recipe_minutes(record, request)
+            if minutes is None:
                 errors.append(f"{record.recipe_id}: total time is unknown")
-            elif record.total_time_minutes > request.max_time_minutes:
+            elif minutes > request.max_time_minutes:
                 errors.append(f"{record.recipe_id}: exceeds the requested time limit")
 
         unavailable = record.equipment_tags_inferred & request.unavailable_equipment
@@ -713,7 +747,7 @@ class FridgeRescueWorkflow:
                     ),
                     retry_count=retry_count,
                     trace=fallback_trace,
-                    **self._outcome_usage(state),
+                    **self._outcome_metadata(state),
                 )
                 update.update(
                     draft=fallback_draft,
@@ -736,7 +770,7 @@ class FridgeRescueWorkflow:
             ),
             retry_count=state.get("retry_count", 0),
             trace=trace,
-            **self._outcome_usage(state),
+            **self._outcome_metadata(state),
         )
         return {
             "validation_passed": True,
