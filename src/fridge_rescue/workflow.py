@@ -577,6 +577,13 @@ class FridgeRescueWorkflow:
             return []
 
         errors: list[str] = []
+        expected_selection_count = min(self.selection_pool_size, len(feasible_ids))
+        if len(draft.selections) != expected_selection_count:
+            errors.append(
+                "Return exactly "
+                f"{expected_selection_count} unique selection(s), one for every "
+                "supplied feasible candidate."
+            )
         allowed_notes = {
             normalize_token(note) for note in state.get("allowed_substitution_notes", [])
         }
