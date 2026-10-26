@@ -7,9 +7,9 @@ two-hop ingredient -> recipe <- ingredient traversal, not an invented similarity
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field

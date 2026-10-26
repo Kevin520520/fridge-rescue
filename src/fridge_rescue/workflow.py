@@ -16,7 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from fridge_rescue.ingredient_graph import RecipeGraphEvidence, RecipeIngredientGraph
 from fridge_rescue.retrieval import ingredient_match_details
 from fridge_rescue.rule_checker import find_excluded_matches, normalize_token
-from fridge_rescue.schemas import LLMRecommendation, RecipeRecord, UserRequest, effective_recipe_minutes
+from fridge_rescue.schemas import (
+    LLMRecommendation,
+    RecipeRecord,
+    UserRequest,
+    effective_recipe_minutes,
+)
 from fridge_rescue.selector_errors import SelectorOutputError, SelectorServiceError
 
 

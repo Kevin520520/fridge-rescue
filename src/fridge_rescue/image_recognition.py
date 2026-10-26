@@ -13,6 +13,7 @@ from openai import OpenAI
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from fridge_rescue.input_normalization import contains_chinese
 from fridge_rescue.rule_checker import normalize_token
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -120,6 +121,15 @@ class RecognizedIngredient(BaseModel):
         if any(separator in value for separator in (",", ";")):
             raise ValueError("Return one ingredient type per item")
         return value.casefold()
+
+    @field_validator("name_zh")
+    @classmethod
+    def chinese_name(cls, value: str) -> str:
+        if not contains_chinese(value):
+            raise ValueError("name_zh must contain a Chinese ingredient name")
+        if any(separator in value for separator in (",", "，", "、", ";", "；")):
+            raise ValueError("Return one ingredient type per item")
+        return value
 
 
 class IngredientRecognitionResult(BaseModel):

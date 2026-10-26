@@ -20,8 +20,17 @@ from pydantic import ValidationError
 from fridge_rescue.model_usage import TokenUsage, extract_token_usage
 from fridge_rescue.retrieval import ingredient_match_details
 from fridge_rescue.rule_checker import normalize_token
-from fridge_rescue.schemas import LLMRecommendation, RecipeRecord, UserRequest, effective_recipe_minutes
-from fridge_rescue.selector_errors import SelectorError, SelectorOutputError, SelectorServiceError
+from fridge_rescue.schemas import (
+    LLMRecommendation,
+    RecipeRecord,
+    UserRequest,
+    effective_recipe_minutes,
+)
+from fridge_rescue.selector_errors import (
+    SelectorError,
+    SelectorOutputError,
+    SelectorServiceError,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROMPTS_PATH = PROJECT_ROOT / "prompts.yaml"
@@ -92,7 +101,8 @@ def _candidate_data(
         "total_time_minutes": record.total_time_minutes,
         "effective_time_minutes": effective_recipe_minutes(record, request),
         "time_source": "source" if record.total_time_minutes is not None else "step_estimate",
-        "diet_status_source": record.diet_status_source,
+        "vegetarian_status_source": record.vegetarian_status_source,
+        "vegan_status_source": record.vegan_status_source,
         "rating": record.rating,
         "review_count": record.review_count,
         "equipment_tags_inferred": sorted(record.equipment_tags_inferred),

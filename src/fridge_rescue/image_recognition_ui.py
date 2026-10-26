@@ -9,10 +9,10 @@ from collections.abc import Mapping
 import streamlit as st
 
 from fridge_rescue.image_recognition import (
+    MAX_BATCH_IMAGE_BYTES,
+    MAX_IMAGES,
     IngredientRecognitionError,
     InvalidIngredientImage,
-    MAX_IMAGES,
-    MAX_BATCH_IMAGE_BYTES,
     ResponsesIngredientRecognizer,
     canonicalize_recognized_ingredients,
     prepare_ingredient_image,

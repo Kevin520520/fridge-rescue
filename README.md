@@ -16,6 +16,8 @@ experiment outputs are not included in this public runtime repository.
 ## Application modes
 
 - **Local retrieval** — searches the prepared corpus without calling an external model.
+  Optional photo recognition and natural-language parsing are separate AI tools and call
+  the configured provider only when clicked.
 - **Single-prompt** — asks the configured model to generate recipes in one call.
 - **Agentic workflow** — retrieves local candidates, lets the model select recipe IDs,
   validates the selection and displays the original corpus quantities and instructions. If
@@ -53,10 +55,14 @@ not run automatically while typing.
 The released source has no total-time values and very few explicit diet labels.
 At runtime, `cooking_metadata.py` adds ingredient-rule diet labels and a separate,
 visible **step-based time estimate**, preserving the original source fields. The
-estimate adds stated duration upper bounds (including per-side times and mandatory
-waits) to 10 preparation minutes, 2 minutes per step, and 5 minutes per untimed cooking
-step. Optional storage is excluded. Cards show **步骤估算** and their Source tab lists
-the calculation. Uncheck **包含步骤估算时长** to require a source-provided total time.
+deterministic estimate uses the upper bound of a required duration range, selects the
+shorter explicitly alternative path, and includes per-side times and mandatory waits.
+It then adds 10 preparation minutes, 2 minutes per step and 5 minutes per untimed cooking
+step. Optional storage, make-ahead extensions and alternative overnight waits are
+excluded when the instruction wording identifies them.
+Because recipe prose is not fully standardized, this remains an approximate filter rather
+than a guaranteed cooking time. Cards show **步骤估算** and their Source tab lists the
+calculation. Uncheck **包含步骤估算时长** to require a source-provided total time.
 Diet rules check animal markers, plant dairy exceptions, recognized ingredients and
 ambiguous prepared products; unresolved recipes retain an unknown diet status and
 are excluded by a diet filter. These are deterministic supporting rules, not a trained
@@ -160,6 +166,10 @@ leave the field blank and press Enter.
 The prepared Parquet file is already included, so normal users do **not** need to run the
 data pipeline.
 
+The repository keeps tracked text files in LF format. The setup checker also normalizes
+LF/CRLF line endings when verifying `rules.yaml`, so Windows Git settings do not produce
+a false data-integrity warning.
+
 ### Quick local test
 
 Choose **Local retrieval** and enter:
@@ -186,19 +196,9 @@ notepad .env
 Replace the placeholder with your own DeepSeek API key, save the file and restart
 Streamlit. Never commit `.env` or publish a real API key.
 
-The same key enables photo recognition. Existing Streamlit deployments can reuse their
-configured provider secret. No separate vision key is required.
-
-### Run the feature checks
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py" -v
-```
-
-These checks use simulated API responses and in-memory test images. They cover image
-validation, batch merging, structured language parsing, user confirmation, combined
-hard filters, time/diet metadata, graph evidence, Agentic orchestration and recipe retrieval
-without requiring credentials or calling an external service.
+The same key also enables optional photo recognition and natural-language parsing.
+Existing Streamlit deployments can reuse their configured provider secret. No separate
+vision key is required.
 
 ## Prepared dataset
 

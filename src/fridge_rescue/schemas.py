@@ -109,7 +109,12 @@ class RecipeRecord(BaseModel):
     source_record_id: str
     estimated_time_minutes: int | None = Field(default=None, ge=1)
     time_estimate_basis: list[str] = Field(default_factory=list)
-    diet_status_source: Literal["source", "ingredient_rules"] = "source"
+    vegetarian_status_source: Literal["curation_rules", "runtime_ingredient_rules"] = (
+        "curation_rules"
+    )
+    vegan_status_source: Literal["curation_rules", "runtime_ingredient_rules"] = (
+        "curation_rules"
+    )
 
     @model_validator(mode="after")
     def ingredient_lines_must_be_parallel(self) -> RecipeRecord:

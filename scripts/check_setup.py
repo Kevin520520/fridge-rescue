@@ -64,6 +64,13 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_lf_text(path: Path) -> str:
+    """Hash text after normalizing Git-compatible line endings to LF."""
+
+    content = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(content).hexdigest()
+
+
 def load_source_metadata(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     """Read optional source metadata and return a validation error when malformed."""
 
@@ -121,7 +128,7 @@ def validate_curated_corpus(
     recorded_rules_sha = summary.get("curation_rules_sha256")
     if not isinstance(recorded_rules_sha, str) or not recorded_rules_sha.strip():
         return False, f"{summary_path.name} has no curation_rules_sha256"
-    if sha256(rules_path).casefold() != recorded_rules_sha.strip().casefold():
+    if sha256_lf_text(rules_path).casefold() != recorded_rules_sha.strip().casefold():
         return False, "rules.yaml does not match the curated release metadata"
 
     output_hashes = summary.get("output_sha256")

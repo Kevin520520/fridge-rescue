@@ -9,8 +9,8 @@ from typing import Any
 
 import pyarrow.parquet as pq
 
-from fridge_rescue.schemas import RecipeRecord
 from fridge_rescue.cooking_metadata import enrich_cooking_metadata
+from fridge_rescue.schemas import RecipeRecord
 from fridge_rescue.settings import PROJECT_ROOT
 
 DEFAULT_CURATED_CORPUS_PATH = PROJECT_ROOT / "data" / "curated" / "recipes_2000.parquet"

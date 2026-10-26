@@ -8,8 +8,13 @@ from collections.abc import Mapping
 import streamlit as st
 
 from fridge_rescue.cooking_constraints import (
-    DIET_LABELS, EQUIPMENT_LABELS, MAX_REQUEST_LENGTH, ConstraintParsingError,
-    ResponsesConstraintParser, input_defaults, parsed_input_updates,
+    DIET_LABELS,
+    EQUIPMENT_LABELS,
+    MAX_REQUEST_LENGTH,
+    ConstraintParsingError,
+    ResponsesConstraintParser,
+    input_defaults,
+    parsed_input_updates,
 )
 from fridge_rescue.settings import Settings
 

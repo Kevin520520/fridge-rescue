@@ -11,7 +11,11 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fridge_rescue.image_recognition import VisionClientLike
-from fridge_rescue.input_normalization import contains_chinese, merge_ingredient_text, parse_ingredient_text
+from fridge_rescue.input_normalization import (
+    contains_chinese,
+    merge_ingredient_text,
+    parse_ingredient_text,
+)
 from fridge_rescue.schemas import SUPPORTED_EQUIPMENT, UserRequest
 
 Equipment = Literal[

@@ -11,20 +11,23 @@ import streamlit as st
 import yaml
 from pydantic import ValidationError
 
-from fridge_rescue.cooking_constraints import request_from_inputs
-from fridge_rescue.cooking_metadata import COOKING_METADATA_VERSION
-from fridge_rescue.cooking_constraints_ui import (
-    initialize_cooking_inputs, render_cooking_filters, render_natural_language_input,
-)
-from fridge_rescue.ingredient_graph import RecipeIngredientGraph
-from fridge_rescue.ingredient_graph_ui import (
-    render_ingredient_graph_query, render_recipe_graph_evidence,
-)
-from fridge_rescue.image_recognition_ui import render_image_ingredient_input
 from fridge_rescue.baseline import (
     BaselineError,
     BaselineRecommendation,
     ResponsesSinglePromptBaseline,
+)
+from fridge_rescue.cooking_constraints import request_from_inputs
+from fridge_rescue.cooking_constraints_ui import (
+    initialize_cooking_inputs,
+    render_cooking_filters,
+    render_natural_language_input,
+)
+from fridge_rescue.cooking_metadata import COOKING_METADATA_VERSION
+from fridge_rescue.image_recognition_ui import render_image_ingredient_input
+from fridge_rescue.ingredient_graph import RecipeIngredientGraph
+from fridge_rescue.ingredient_graph_ui import (
+    render_ingredient_graph_query,
+    render_recipe_graph_evidence,
 )
 from fridge_rescue.input_normalization import (
     UnsupportedChineseIngredientError,
@@ -36,7 +39,10 @@ from fridge_rescue.presentation import (
     authoritative_source_line_html,
     ingredient_display_lines,
 )
-from fridge_rescue.repository import DEFAULT_CURATED_CORPUS_PATH, ParquetRecipeRepository
+from fridge_rescue.repository import (
+    DEFAULT_CURATED_CORPUS_PATH,
+    ParquetRecipeRepository,
+)
 from fridge_rescue.retrieval import (
     DeterministicRecipeRetriever,
     RetrievalPolicy,
@@ -63,7 +69,10 @@ MODE_LABELS = {
 MODE_DESCRIPTIONS = {
     AGENTIC_MODE: "Searches the curated recipe collection, then validates ingredient fit.",
     BASELINE_MODE: "Generates directly with AI, without recipe retrieval; included for comparison.",
-    OFFLINE_MODE: "Searches the local recipe collection only, with no external AI call or API cost.",
+    OFFLINE_MODE: (
+        "Recipe search uses only the local collection. Optional photo and language tools "
+        "call AI only when clicked. / 菜谱检索仅使用本地数据；照片和自然语言工具仅在点击时调用 AI。"
+    ),
 }
 
 
@@ -404,7 +413,16 @@ def _display_recipe(
             facts.append(f"⏱️ About {recipe.estimated_time_minutes} min (step estimate) · 约 {recipe.estimated_time_minutes} 分钟（步骤估算）")
         if request.diet_preference != "none":
             diet_label = "Vegan · 纯素" if request.diet_preference == "vegan" else "Vegetarian · 蛋奶素"
-            source = "Ingredient rules · 食材规则判定" if recipe.diet_status_source == "ingredient_rules" else "Source label · 来源标注"
+            source_field = (
+                recipe.vegan_status_source
+                if request.diet_preference == "vegan"
+                else recipe.vegetarian_status_source
+            )
+            source = (
+                "Runtime ingredient rules · 运行时食材规则"
+                if source_field == "runtime_ingredient_rules"
+                else "Curation rules · 数据整理规则"
+            )
             facts.append(f"🥬 {diet_label}（{source}）")
         if recipe.rating is not None:
             facts.append(f"⭐ {recipe.rating:.1f}/5")
@@ -457,8 +475,11 @@ def _display_recipe(
                 st.markdown("**时长估算依据 · Time estimate**")
                 for basis in recipe.time_estimate_basis:
                     st.write(basis)
-            if recipe.diet_status_source == "ingredient_rules":
-                st.caption("Diet labels are derived from animal-product markers, recognized ingredients and prepared-food rules in the original ingredient lines. / 饮食标签由原始食材行的动物性成分、已知食材和复合食品规则判定。")
+            if "runtime_ingredient_rules" in {
+                recipe.vegetarian_status_source,
+                recipe.vegan_status_source,
+            }:
+                st.caption("Missing diet labels are supplemented at runtime using animal-product markers, recognized ingredients and prepared-food rules in the original ingredient lines. / 缺失的饮食标签会在运行时根据原始食材行中的动物性成分、已知食材和复合食品规则补充判定。")
             if substitution_notes:
                 st.markdown("**Allowed substitution notes**")
                 for note in substitution_notes:

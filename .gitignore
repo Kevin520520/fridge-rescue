@@ -12,11 +12,7 @@ __pycache__/
 .pipeline*/
 .ruff_cache/
 .streamlit/secrets.toml
-tests/*
-!tests/test_image_recognition.py
-!tests/test_image_recognition_ui.py
-!tests/test_cooking_features.py
-!tests/test_cooking_features_ui.py
+tests/
 scripts/live_smoke.py
 .DS_Store
 Thumbs.db

@@ -10,7 +10,11 @@ import streamlit as st
 from pydantic import ValidationError
 
 from fridge_rescue.cooking_constraints import request_from_inputs
-from fridge_rescue.ingredient_graph import RecipeGraphEvidence, RecipeIngredientGraph
+from fridge_rescue.ingredient_graph import (
+    RecipeGraphEvidence,
+    RecipeIngredientGraph,
+    SubstitutionMatch,
+)
 from fridge_rescue.input_normalization import parse_ingredient_text
 from fridge_rescue.repository import ParquetRecipeRepository
 from fridge_rescue.retrieval import DeterministicRecipeRetriever
@@ -52,6 +56,22 @@ def recipe_paths_dot(evidence: Sequence[RecipeGraphEvidence], titles: Mapping[st
                 (ingredient_key, recipe_key, "Used in · 用于菜谱"),
             ])
     return _dot(edges, labels)
+
+
+def substitution_paths_dot(matches: Sequence[SubstitutionMatch]) -> str:
+    """Render reviewed substitutions in the same direction as their rules."""
+
+    return _dot(
+        [
+            (item.original, item.substitute, "Conditional replacement · 有条件替代")
+            for item in matches
+        ],
+        {
+            value: value
+            for item in matches
+            for value in (item.original, item.substitute)
+        },
+    )
 
 
 def render_recipe_graph_evidence(
@@ -157,10 +177,7 @@ def render_ingredient_graph_query(
                          "Notes · 注意事项": item.warning, "Source · 来源": item.source}
                         for item in matches
                     ]
-                    dot = _dot(
-                        [(item.substitute, item.original, "Conditional replacement · 有条件替代") for item in matches],
-                        {value: value for item in matches for value in (item.substitute, item.original)},
-                    )
+                    dot = substitution_paths_dot(matches)
                 st.session_state["ingredient_graph_result"] = {"rows": rows, "dot": dot}
             except (ValueError, ValidationError) as error:
                 st.error(str(error))
