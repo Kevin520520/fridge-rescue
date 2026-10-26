@@ -320,9 +320,15 @@ class FridgeRescueWorkflow:
 
     @staticmethod
     def _outcome_metadata(state: AgentWorkflowState) -> dict[str, object]:
+        graph_evidence = [
+            item.model_dump(mode="python")
+            if isinstance(item, BaseModel)
+            else item
+            for item in state.get("graph_evidence", [])
+        ]
         graph_metadata = {
             "graph_candidate_count": len(state.get("graph_candidate_ids", [])),
-            "graph_evidence": state.get("graph_evidence", []),
+            "graph_evidence": graph_evidence,
         }
         if not state.get("usage_complete", True):
             return {"input_tokens": None, "output_tokens": None, **graph_metadata}
