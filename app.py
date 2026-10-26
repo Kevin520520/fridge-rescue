@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -68,7 +69,10 @@ MODE_LABELS = {
 }
 MODE_DESCRIPTIONS = {
     AGENTIC_MODE: "Searches the curated recipe collection, then validates ingredient fit.",
-    BASELINE_MODE: "Generates directly with AI, without recipe retrieval; included for comparison.",
+    BASELINE_MODE: (
+        "Generates directly with AI, without recipe retrieval or deterministic "
+        "constraint checks; included for comparison."
+    ),
     OFFLINE_MODE: (
         "Recipe search uses only the local collection. Optional photo and language tools "
         "call AI only when clicked. / 菜谱检索仅使用本地数据；照片和自然语言工具仅在点击时调用 AI。"
@@ -250,6 +254,33 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return value
 
 
+def _runtime_fingerprint() -> str:
+    """Identify the exact local data and rule files used by the cached runtime."""
+
+    digest = hashlib.sha256(COOKING_METADATA_VERSION.encode("utf-8"))
+    for path in (
+        PROJECT_ROOT / "rules.yaml",
+        PROJECT_ROOT / "config.yaml",
+        DEFAULT_CURATED_CORPUS_PATH,
+    ):
+        digest.update(path.name.encode("utf-8"))
+        with path.open("rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _diet_status_source(recipe: RecipeRecord, diet_preference: str) -> str:
+    """Read diet provenance while remaining compatible with an older cached record."""
+
+    field = (
+        "vegan_status_source"
+        if diet_preference == "vegan"
+        else "vegetarian_status_source"
+    )
+    return str(getattr(recipe, field, "curation_rules"))
+
+
 def _reviewed_substitution_notes(rules: dict[str, Any]) -> list[str]:
     notes: list[str] = []
     substitutions = rules.get("substitutions", {})
@@ -272,14 +303,14 @@ def _reviewed_substitution_notes(rules: dict[str, Any]) -> list[str]:
 
 
 @st.cache_resource(show_spinner=False)
-def load_offline_runtime(metadata_version: str) -> tuple[
+def load_offline_runtime(runtime_fingerprint: str) -> tuple[
     ParquetRecipeRepository,
     DeterministicRecipeRetriever,
     tuple[str, ...],
     tuple[str, ...],
     RecipeIngredientGraph,
 ]:
-    """Cache corpus resources by metadata policy version across Streamlit reruns."""
+    """Cache corpus resources for one exact data, rule and metadata release."""
 
     repository = ParquetRecipeRepository()
     retrieval_rules = RetrievalRules.from_yaml()
@@ -413,11 +444,7 @@ def _display_recipe(
             facts.append(f"⏱️ About {recipe.estimated_time_minutes} min (step estimate) · 约 {recipe.estimated_time_minutes} 分钟（步骤估算）")
         if request.diet_preference != "none":
             diet_label = "Vegan · 纯素" if request.diet_preference == "vegan" else "Vegetarian · 蛋奶素"
-            source_field = (
-                recipe.vegan_status_source
-                if request.diet_preference == "vegan"
-                else recipe.vegetarian_status_source
-            )
+            source_field = _diet_status_source(recipe, request.diet_preference)
             source = (
                 "Runtime ingredient rules · 运行时食材规则"
                 if source_field == "runtime_ingredient_rules"
@@ -476,8 +503,8 @@ def _display_recipe(
                 for basis in recipe.time_estimate_basis:
                     st.write(basis)
             if "runtime_ingredient_rules" in {
-                recipe.vegetarian_status_source,
-                recipe.vegan_status_source,
+                _diet_status_source(recipe, "vegetarian"),
+                _diet_status_source(recipe, "vegan"),
             }:
                 st.caption("Missing diet labels are supplemented at runtime using animal-product markers, recognized ingredients and prepared-food rules in the original ingredient lines. / 缺失的饮食标签会在运行时根据原始食材行中的动物性成分、已知食材和复合食品规则补充判定。")
             if substitution_notes:
@@ -495,6 +522,12 @@ def _display_workflow_outcome(
     max_recommendations: int,
 ) -> None:
     if outcome.status == "success":
+        if "deterministic_fallback" in outcome.trace:
+            st.warning(
+                "The AI selection did not pass validation, so these recipes come from "
+                "the validated local ranking. Count this run as a fallback, not an "
+                "Agentic success. / AI 选择未通过校验，当前展示的是本地验证排序结果。"
+            )
         for recommendation in outcome.recommendations[:max_recommendations]:
             _display_recipe(
                 recommendation.recipe,
@@ -534,6 +567,11 @@ def _display_baseline_outcome(
 
     st.caption(
         "🧪 Comparison mode: generated directly by AI without searching the local recipe collection."
+    )
+    st.warning(
+        "AI-generated comparison result: avoided ingredients, diet, time and equipment "
+        "are not deterministically verified. Do not use this mode for allergy decisions. / "
+        "此模式由 AI 直接生成，禁忌、饮食、时间和厨具条件未经确定性校验，不可用于过敏决策。"
     )
     if outcome.no_result_reason is not None:
         st.warning(outcome.no_result_reason)
@@ -598,17 +636,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-settings = get_settings()
-corpus_ready = DEFAULT_CURATED_CORPUS_PATH.is_file()
-api_ready = settings.has_valid_llm_key
-provider_label = _provider_label(settings.active_provider)
-
-if not corpus_ready:
-    st.error("Recipe data is not ready. Follow the data setup steps in the README first.")
-    st.stop()
-
 try:
-    repository, retriever, reviewed_notes, pantry_staples, ingredient_graph = load_offline_runtime(COOKING_METADATA_VERSION)
+    settings = get_settings()
+    if not DEFAULT_CURATED_CORPUS_PATH.is_file():
+        raise FileNotFoundError(DEFAULT_CURATED_CORPUS_PATH)
+    repository, retriever, reviewed_notes, pantry_staples, ingredient_graph = load_offline_runtime(
+        _runtime_fingerprint()
+    )
     app_config = _load_yaml(PROJECT_ROOT / "config.yaml")
     candidate_pool_size = int(app_config["retrieval"]["candidate_pool_size"])
     max_recommendations = int(app_config["retrieval"]["max_recommendations"])
@@ -616,9 +650,17 @@ try:
         raise ValueError("retrieval.candidate_pool_size must be positive")
     if not 1 <= max_recommendations <= 3:
         raise ValueError("retrieval.max_recommendations must be between 1 and 3")
-except Exception:  # noqa: BLE001 - render a safe startup error
+except FileNotFoundError:
+    logger.exception("Application startup failed because a required file is missing")
+    st.error("Recipe data is not ready. Follow the data setup steps in the README first.")
+    st.stop()
+except Exception:
+    logger.exception("Application startup failed")
     st.error("Project data or settings could not be loaded. Run the setup check in the README.")
     st.stop()
+
+api_ready = settings.has_valid_llm_key
+provider_label = _provider_label(settings.active_provider)
 
 mode_options = [OFFLINE_MODE]
 if api_ready:

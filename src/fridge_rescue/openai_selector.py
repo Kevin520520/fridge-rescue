@@ -101,8 +101,12 @@ def _candidate_data(
         "total_time_minutes": record.total_time_minutes,
         "effective_time_minutes": effective_recipe_minutes(record, request),
         "time_source": "source" if record.total_time_minutes is not None else "step_estimate",
-        "vegetarian_status_source": record.vegetarian_status_source,
-        "vegan_status_source": record.vegan_status_source,
+        "vegetarian_status_source": getattr(
+            record, "vegetarian_status_source", "curation_rules"
+        ),
+        "vegan_status_source": getattr(
+            record, "vegan_status_source", "curation_rules"
+        ),
         "rating": record.rating,
         "review_count": record.review_count,
         "equipment_tags_inferred": sorted(record.equipment_tags_inferred),

@@ -47,8 +47,19 @@ def render_image_ingredient_input(
             key="ingredient_photo_upload",
             help="JPG/PNG/WebP; up to 5 photos, 10 MB each, 25 MB total. / 最多 5 张，每张 10 MB，总计 25 MB。",
         )
-        uploads = uploaded or []
-        photos = [(item.name, item.getvalue()) for item in uploads]
+        uploads = list(uploaded or [])
+        photos: list[tuple[str, bytes]] = []
+        prepared = []
+        valid_batch = True
+        if len(uploads) > MAX_IMAGES:
+            st.error("Upload up to 5 photos at a time. / 每次最多上传 5 张图片。")
+            valid_batch = False
+        elif sum(item.size for item in uploads) > MAX_BATCH_IMAGE_BYTES:
+            st.error("Photos must total at most 25 MB. / 图片总大小不能超过 25 MB。")
+            valid_batch = False
+        else:
+            photos = [(item.name, item.getvalue()) for item in uploads]
+
         context = (
             tuple((name, hashlib.sha256(data).hexdigest()) for name, data in photos),
             settings.active_provider,
@@ -58,15 +69,7 @@ def render_image_ingredient_input(
             _clear_photo_result()
             st.session_state[_PHOTO_CONTEXT] = context
 
-        prepared = []
-        valid_batch = True
-        if len(photos) > MAX_IMAGES:
-            st.error("Upload up to 5 photos at a time. / 每次最多上传 5 张图片。")
-            valid_batch = False
-        elif sum(len(data) for _, data in photos) > MAX_BATCH_IMAGE_BYTES:
-            st.error("Photos must total at most 25 MB. / 图片总大小不能超过 25 MB。")
-            valid_batch = False
-        elif photos:
+        if photos:
             columns = st.columns(min(len(photos), 3))
             seen: set[str] = set()
             for index, (name, data) in enumerate(photos):
@@ -114,10 +117,18 @@ def render_image_ingredient_input(
                         recognizer.recognize(prepared), ingredient_aliases
                     )
             except IngredientRecognitionError as error:
-                logger.warning("Ingredient photo recognition failed: %s", type(error).__name__)
-                st.session_state[_PHOTO_ERROR] = (
-                    "Recognition could not be completed. Please try again. / "
-                    "暂时无法完成识别，请重试。"
+                logger.warning("Ingredient photo recognition failed: %s", error.reason)
+                messages = {
+                    "authentication": "Photo recognition is not configured correctly. / 图片识别配置有误，请联系应用维护者。",
+                    "rate_limit": "Photo recognition is busy or has reached its usage limit. Try again later. / 图片识别繁忙或已达额度，请稍后重试。",
+                    "timeout": "Photo recognition timed out. Try fewer or smaller photos. / 图片识别超时，请减少图片数量或大小后重试。",
+                    "model_or_request": "The selected AI model cannot process these photos. / 当前 AI 模型无法处理这些图片。",
+                    "connection": "The photo service could not be reached. Try again later. / 暂时无法连接图片识别服务，请稍后重试。",
+                    "invalid_output": "Some photo labels could not be validated. Try a clearer photo. / 识别结果无法通过校验，请换一张更清晰的图片。",
+                }
+                st.session_state[_PHOTO_ERROR] = messages.get(
+                    error.reason,
+                    "Recognition could not be completed. Please try again. / 暂时无法完成识别，请重试。",
                 )
 
         if error_message := st.session_state.get(_PHOTO_ERROR):
@@ -125,11 +136,17 @@ def render_image_ingredient_input(
         result = st.session_state.get(_PHOTO_RESULT)
         if result is None:
             return
-        if not result.ingredients:
-            st.info(
-                "No ingredients were identified. Try a clearer photo. / "
-                "未识别到食材，请换一张更清晰的图片。"
+        if result.discarded_items:
+            st.warning(
+                f"Omitted {result.discarded_items} uncertain label(s). / "
+                f"已忽略 {result.discarded_items} 个无法确认的标签。"
             )
+        if not result.ingredients:
+            if not result.discarded_items:
+                st.info(
+                    "No ingredients were identified. Try a clearer photo. / "
+                    "未识别到食材，请换一张更清晰的图片。"
+                )
             return
 
         labels = {item.name_en: f"{item.name_zh} · {item.name_en}" for item in result.ingredients}

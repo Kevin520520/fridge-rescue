@@ -154,7 +154,7 @@ git clone https://github.com/Kevin520520/fridge-rescue.git
 cd fridge-rescue
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e . -c requirements-lock.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe scripts\check_setup.py
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
@@ -165,6 +165,13 @@ leave the field blank and press Enter.
 
 The prepared Parquet file is already included, so normal users do **not** need to run the
 data pipeline.
+
+To test work that has not yet been merged into the production branch, clone the
+staging branch instead:
+
+```powershell
+git clone -b staging --single-branch https://github.com/Kevin520520/fridge-rescue.git
+```
 
 The repository keeps tracked text files in LF format. The setup checker also normalizes
 LF/CRLF line endings when verifying `rules.yaml`, so Windows Git settings do not produce

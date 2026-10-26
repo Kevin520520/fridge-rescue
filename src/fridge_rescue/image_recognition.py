@@ -3,15 +3,31 @@
 from __future__ import annotations
 
 import base64
+import logging
+import unicodedata
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Literal, Protocol
 
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    OpenAI,
+    RateLimitError,
+)
 from PIL import Image, ImageOps, UnidentifiedImageError
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from fridge_rescue.input_normalization import contains_chinese
 from fridge_rescue.rule_checker import normalize_token
@@ -22,6 +38,7 @@ MAX_IMAGE_SIDE = 1600
 MAX_IMAGES = 5
 MAX_BATCH_IMAGE_BYTES = 25 * 1024 * 1024
 SUPPORTED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
+logger = logging.getLogger(__name__)
 
 
 class InvalidIngredientImage(ValueError):
@@ -30,6 +47,10 @@ class InvalidIngredientImage(ValueError):
 
 class IngredientRecognitionError(RuntimeError):
     """The image service could not return a complete, valid ingredient list."""
+
+    def __init__(self, message: str, *, reason: str = "provider") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -116,7 +137,13 @@ class RecognizedIngredient(BaseModel):
     @field_validator("name_en")
     @classmethod
     def english_name(cls, value: str) -> str:
-        if not value.isascii() or not any(character.isalpha() for character in value):
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+        value = " ".join(value.split())
+        if not value or not any(character.isalpha() for character in value):
             raise ValueError("name_en must be an English ingredient name")
         if any(separator in value for separator in (",", ";")):
             raise ValueError("Return one ingredient type per item")
@@ -138,6 +165,7 @@ class IngredientRecognitionResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ingredients: list[RecognizedIngredient] = Field(max_length=40)
+    discarded_items: int = Field(default=0, ge=0, exclude=True)
 
     @model_validator(mode="after")
     def unique_ingredients(self) -> IngredientRecognitionResult:
@@ -146,6 +174,23 @@ class IngredientRecognitionResult(BaseModel):
             unique.setdefault(ingredient.name_en, ingredient)
         self.ingredients = list(unique.values())
         return self
+
+
+class _RawRecognizedIngredient(BaseModel):
+    """Provider output shape before local language and retrieval validation."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    name_en: str = Field(min_length=1, max_length=80)
+    name_zh: str = Field(min_length=1, max_length=80)
+
+
+class _RawIngredientRecognitionResult(BaseModel):
+    """Bounded provider output that allows invalid labels to be discarded individually."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    ingredients: list[_RawRecognizedIngredient] = Field(max_length=40)
 
 
 VISION_SYSTEM_PROMPT = """Identify the food ingredient types clearly visible in the photo.
@@ -174,7 +219,10 @@ def canonicalize_recognized_ingredients(
         unique.setdefault(
             canonical, RecognizedIngredient(name_en=canonical, name_zh=item.name_zh)
         )
-    return IngredientRecognitionResult(ingredients=list(unique.values()))
+    return IngredientRecognitionResult(
+        ingredients=list(unique.values()),
+        discarded_items=result.discarded_items,
+    )
 
 
 class _ResponsesResource(Protocol):
@@ -237,7 +285,7 @@ class ResponsesIngredientRecognizer:
                     ],
                 },
             ],
-            "text_format": IngredientRecognitionResult,
+            "text_format": _RawIngredientRecognitionResult,
             "max_output_tokens": 2048,
         }
         if self.reasoning_effort is not None:
@@ -245,13 +293,68 @@ class ResponsesIngredientRecognizer:
         try:
             response = self._client.responses.parse(**options)
             if getattr(response, "status", None) != "completed":
-                raise IngredientRecognitionError("Image recognition did not complete")
+                raise IngredientRecognitionError(
+                    "Image recognition did not complete", reason="provider"
+                )
             parsed = getattr(response, "output_parsed", None)
             if parsed is None:
-                raise IngredientRecognitionError("No ingredient list was returned")
-            return IngredientRecognitionResult.model_validate(parsed)
+                raise IngredientRecognitionError(
+                    "No ingredient list was returned", reason="invalid_output"
+                )
+            raw_result = _RawIngredientRecognitionResult.model_validate(parsed)
+            ingredients: list[RecognizedIngredient] = []
+            discarded_items = 0
+            for raw_item in raw_result.ingredients:
+                try:
+                    ingredients.append(
+                        RecognizedIngredient.model_validate(raw_item.model_dump())
+                    )
+                except ValidationError:
+                    discarded_items += 1
+            if discarded_items:
+                logger.warning(
+                    "Ingredient photo recognition discarded %d invalid label(s)",
+                    discarded_items,
+                )
+            if raw_result.ingredients and not ingredients:
+                raise IngredientRecognitionError(
+                    "No returned ingredient labels passed validation",
+                    reason="invalid_output",
+                )
+            return IngredientRecognitionResult(
+                ingredients=ingredients,
+                discarded_items=discarded_items,
+            )
         except IngredientRecognitionError:
             raise
+        except AuthenticationError as exc:
+            raise IngredientRecognitionError(
+                "Image recognition authentication failed", reason="authentication"
+            ) from exc
+        except RateLimitError as exc:
+            raise IngredientRecognitionError(
+                "Image recognition rate limit reached", reason="rate_limit"
+            ) from exc
+        except APITimeoutError as exc:
+            raise IngredientRecognitionError(
+                "Image recognition timed out", reason="timeout"
+            ) from exc
+        except BadRequestError as exc:
+            raise IngredientRecognitionError(
+                "The configured model rejected the image request",
+                reason="model_or_request",
+            ) from exc
+        except ValidationError as exc:
+            raise IngredientRecognitionError(
+                "Image recognition returned invalid structured output",
+                reason="invalid_output",
+            ) from exc
+        except APIConnectionError as exc:
+            raise IngredientRecognitionError(
+                "Image recognition could not reach the provider", reason="connection"
+            ) from exc
         except Exception as exc:
             # Do not include SDK error text: it can contain the image request body.
-            raise IngredientRecognitionError("Image recognition failed") from exc
+            raise IngredientRecognitionError(
+                "Image recognition failed", reason="provider"
+            ) from exc
