@@ -10,8 +10,19 @@ practical recipe suggestions. The repository is intentionally limited to three t
 Formal experiment runners, tuning utilities, presentation files and
 experiment outputs are not included in this public runtime repository.
 
-- Live app: <https://fridge-rescue-ai.streamlit.app/>
-- Repository: <https://github.com/Kevin520520/fridge-rescue>
+- **Live app:** [Open Fridge Rescue](https://fridge-rescue-ai.streamlit.app/)
+- **Source code:** [View the GitHub repository](https://github.com/Kevin520520/fridge-rescue)
+
+## Quick review for instructors
+
+1. Open the live app above.
+2. Choose **Local retrieval · 本地检索**.
+3. Enter `egg, tomato` or `鸡蛋，番茄`, then click **Find recipes**.
+4. The app returns recipe cards from the packaged 2,000-recipe corpus without an API key.
+
+For local inspection, follow the setup steps below. The prepared dataset is already included;
+rebuilding the corpus is optional. Single-prompt, Agentic, photo-recognition and
+natural-language parsing features require a provider key when running a local copy.
 
 ## Application modes
 
@@ -145,7 +156,9 @@ scripts/audit_curated_corpus.py      Audit every generated recipe record
 scripts/check_setup.py               Check runtime and rebuild prerequisites
 ```
 
-## Run locally on Windows
+## Run locally
+
+### Windows
 
 Install Python 3.11, 3.12 or 3.13, then open PowerShell:
 
@@ -166,11 +179,17 @@ leave the field blank and press Enter.
 The prepared Parquet file is already included, so normal users do **not** need to run the
 data pipeline.
 
-To test work that has not yet been merged into the production branch, clone the
-staging branch instead:
+### macOS or Linux
 
-```powershell
-git clone -b staging --single-branch https://github.com/Kevin520520/fridge-rescue.git
+```bash
+git clone https://github.com/Kevin520520/fridge-rescue.git
+cd fridge-rescue
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python scripts/check_setup.py
+python -m streamlit run app.py
 ```
 
 The repository keeps tracked text files in LF format. The setup checker also normalizes
@@ -190,6 +209,9 @@ or:
 ```text
 鸡蛋，番茄
 ```
+
+The expected result is a set of recipe cards from the packaged corpus. This test uses no
+external model and requires no API key.
 
 ## Enable the AI modes
 
